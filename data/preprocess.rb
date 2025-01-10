@@ -8,6 +8,7 @@ files.each do |file|
     content = f.read.force_encoding("shift_jis").encode("utf-8")
     content.gsub!("\r\n", "\n")
     content.gsub!(/［＃[０-９]+字下げ］.+$/, "")
+    content.gsub!(/｜/, "")
     content.gsub!(/［.+?］/, "")
     content.gsub!(/《.+?》/, "")
     content.gsub!(/.+-\n\n/m, "")

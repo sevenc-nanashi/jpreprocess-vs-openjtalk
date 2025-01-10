@@ -43,9 +43,9 @@ fn main() -> anyhow::Result<()> {
     let files = std::env::args().skip(1).map(std::path::PathBuf::from);
     for file in files {
         let text = std::fs::read_to_string(&file)?;
-        let sentences = text
-            .split("。")
-            .map(|s| s.trim().replace("　", "").replace(" ", ""))
+        let sentences = lazy_regex::regex!("[。「」]")
+            .split(&text)
+            .map(|s| lazy_regex::regex_replace_all!(r"\s+", s, ""))
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>();
 
@@ -65,21 +65,11 @@ fn main() -> anyhow::Result<()> {
             let jp_labels = jp.extract_fullcontext(sentence);
             let (ojt_labels, jp_labels) = match (ojt_labels, jp_labels) {
                 (Ok(ojt_labels), Ok(jp_labels)) => (ojt_labels, jp_labels),
-                (Err(e), Ok(_)) => {
-                    println!("{} OpenJTalk error: {}", prefix, e);
-                    errors += 1;
-                    continue;
-                }
-                (Ok(_), Err(e)) => {
-                    eprintln!("{} JPreprocess error: {}", prefix, e);
-                    errors += 1;
-                    continue;
-                }
-                (Err(e1), Err(e2)) => {
-                    eprintln!(
-                        "{} Both errors: OpenJTalk: {}, JPreprocess: {}",
-                        prefix, e1, e2
-                    );
+                (r1, r2) => {
+                    println!("{} \x1b[31mError:\x1b[0m", prefix);
+                    println!("     Original: {}", sentence);
+                    println!("    OpenJTalk: {:?}", r1.map(|_| None::<()>));
+                    println!("  JPreprocess: {:?}", r2.map(|_| None::<()>));
                     errors += 1;
                     continue;
                 }
@@ -123,43 +113,45 @@ fn main() -> anyhow::Result<()> {
                     let mut ojt_buffer = String::new();
                     let mut jp_buffer = String::new();
 
-                    for (ojt_phoneme, jp_phonemes, difference) in
-                        itertools::izip!(ojt_phonemes.iter(), jp_phonemes.iter(), differences.iter())
-                    {
+                    for (ojt_phoneme, jp_phonemes, difference) in itertools::izip!(
+                        ojt_phonemes.iter(),
+                        jp_phonemes.iter(),
+                        differences.iter()
+                    ) {
                         let length = ojt_phoneme.len().max(jp_phonemes.len());
                         match difference {
                             None => {
                                 ojt_buffer.push_str(&format!(
-                                    "{:<width$}",
+                                    "{:>width$}",
                                     ojt_phoneme,
                                     width = length
                                 ));
                                 jp_buffer.push_str(&format!(
-                                    "{:<width$}",
+                                    "{:>width$}",
                                     jp_phonemes,
                                     width = length
                                 ));
                             }
                             Some(Difference::Light) => {
                                 ojt_buffer.push_str(&format!(
-                                    "\x1b[33m{:<width$}\x1b[0m",
+                                    "\x1b[33m{:>width$}\x1b[0m",
                                     ojt_phoneme,
                                     width = length
                                 ));
                                 jp_buffer.push_str(&format!(
-                                    "\x1b[33m{:<width$}\x1b[0m",
+                                    "\x1b[33m{:>width$}\x1b[0m",
                                     jp_phonemes,
                                     width = length
                                 ));
                             }
                             Some(Difference::Fatal) => {
                                 ojt_buffer.push_str(&format!(
-                                    "\x1b[31m{:<width$}\x1b[0m",
+                                    "\x1b[31m{:>width$}\x1b[0m",
                                     ojt_phoneme,
                                     width = length
                                 ));
                                 jp_buffer.push_str(&format!(
-                                    "\x1b[31m{:<width$}\x1b[0m",
+                                    "\x1b[31m{:>width$}\x1b[0m",
                                     jp_phonemes,
                                     width = length
                                 ));
@@ -186,10 +178,95 @@ fn main() -> anyhow::Result<()> {
                         ojt_phonemes.len(),
                         jp_phonemes.len()
                     );
+
+                    let mut ojt_light_mismatch_left = ojt_phonemes.len();
+                    let mut jp_light_mismatch_left = jp_phonemes.len();
+                    let mut ojt_fatal_mismatch_left = ojt_phonemes.len();
+                    let mut jp_fatal_mismatch_left = jp_phonemes.len();
+                    for (i, (ojt_phoneme, jp_phoneme)) in
+                        itertools::izip!(ojt_phonemes.iter(), jp_phonemes.iter()).enumerate()
+                    {
+                        if ojt_phoneme != jp_phoneme {
+                            ojt_light_mismatch_left = i;
+                            jp_light_mismatch_left = i;
+                        }
+                        if !ojt_phoneme.eq_ignore_ascii_case(jp_phoneme) {
+                            ojt_fatal_mismatch_left = i;
+                            jp_fatal_mismatch_left = i;
+                            break;
+                        }
+                    }
+                    let mut ojt_light_mismatch_right = ojt_phonemes.len();
+                    let mut jp_light_mismatch_right = jp_phonemes.len();
+                    let mut ojt_fatal_mismatch_right = ojt_phonemes.len();
+                    let mut jp_fatal_mismatch_right = jp_phonemes.len();
+                    for (i, (ojt_phoneme, jp_phoneme)) in
+                        itertools::izip!(ojt_phonemes.iter().rev(), jp_phonemes.iter().rev())
+                            .enumerate()
+                    {
+                        if ojt_phoneme != jp_phoneme {
+                            ojt_light_mismatch_right = ojt_phonemes.len() - i;
+                            jp_light_mismatch_right = jp_phonemes.len() - i;
+                        }
+                        if !ojt_phoneme.eq_ignore_ascii_case(jp_phoneme) {
+                            ojt_fatal_mismatch_right = ojt_phonemes.len() - i;
+                            jp_fatal_mismatch_right = jp_phonemes.len() - i;
+                            break;
+                        }
+                    }
+
+                    let mut ojt_buffer = String::new();
+                    let mut jp_buffer = String::new();
+
+                    for (i, (ojt_phoneme, jp_phoneme)) in
+                        itertools::izip!(ojt_phonemes.iter(), jp_phonemes.iter()).enumerate()
+                    {
+                        let length = ojt_phoneme.len().max(jp_phoneme.len());
+                        if i == ojt_light_mismatch_left {
+                            ojt_buffer.push_str("\x1b[33m");
+                        }
+                        if i == jp_light_mismatch_left {
+                            jp_buffer.push_str("\x1b[33m");
+                        }
+                        if i == ojt_fatal_mismatch_left {
+                            ojt_buffer.push_str("\x1b[31m");
+                        }
+                        if i == jp_fatal_mismatch_left {
+                            jp_buffer.push_str("\x1b[31m");
+                        }
+
+                        ojt_buffer.push_str(&format!("{:>width$}", ojt_phoneme, width = length));
+                        jp_buffer.push_str(&format!("{:>width$}", jp_phoneme, width = length));
+
+                        if i == ojt_fatal_mismatch_right {
+                            ojt_buffer.push_str("\x1b[33m");
+                        }
+                        if i == jp_fatal_mismatch_right {
+                            jp_buffer.push_str("\x1b[33m");
+                        }
+                        if i == ojt_light_mismatch_right {
+                            ojt_buffer.push_str("\x1b[0m");
+                        }
+                        if i == jp_light_mismatch_right {
+                            jp_buffer.push_str("\x1b[0m");
+                        }
+
+                        ojt_buffer.push(' ');
+                        jp_buffer.push(' ');
+                    }
+                    ojt_buffer = ojt_buffer.trim().to_string();
+                    jp_buffer = jp_buffer.trim().to_string();
+                    if ojt_light_mismatch_right == ojt_phonemes.len() {
+                        ojt_buffer.push_str("\x1b[0m");
+                    }
+                    if jp_light_mismatch_right == jp_phonemes.len() {
+                        jp_buffer.push_str("\x1b[0m");
+                    }
+
                     println!("     Original: {}", sentence);
                     fatal_mismatches += 1;
-                    println!("    OpenJTalk: {}", ojt_phonemes.join(" "));
-                    println!("  JPreprocess: {}", jp_phonemes.join(" "));
+                    println!("    OpenJTalk: {}", ojt_buffer);
+                    println!("  JPreprocess: {}", jp_buffer);
                 }
             }
         }
