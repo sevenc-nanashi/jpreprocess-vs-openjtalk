@@ -1,0 +1,17 @@
+[package]
+name = "jpreprocess-vs-openjtalk"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.95"
+itertools = "0.14.0"
+jlabel = "0.1.4"
+jpreprocess = { version = "0.9", features = ["naist-jdic"] }
+open_jtalk = { git = "https://github.com/voicevox/open_jtalk-rs" }
+
+[build-dependencies]
+anyhow = "1.0.95"
+flate2 = "1.0.35"
+tar = "0.4.43"
+ureq = "2.12.1"
