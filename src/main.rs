@@ -68,8 +68,8 @@ fn main() -> anyhow::Result<()> {
                 (r1, r2) => {
                     println!("{} \x1b[31mError:\x1b[0m", prefix);
                     println!("     Original: {}", sentence);
-                    println!("    OpenJTalk: {:?}", r1.map(|_| None::<()>));
-                    println!("  JPreprocess: {:?}", r2.map(|_| None::<()>));
+                    println!("    OpenJTalk: {:?}", r1.map(|_| ()));
+                    println!("  JPreprocess: {:?}", r2.map(|_| ()));
                     errors += 1;
                     continue;
                 }
