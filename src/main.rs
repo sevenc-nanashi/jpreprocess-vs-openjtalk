@@ -56,7 +56,7 @@ fn main() -> anyhow::Result<()> {
         let mut errors = 0;
         for (sentence_i, sentence) in sentences.iter().enumerate() {
             let prefix = format!(
-                "\r\x1b[K[{} : {} / {}]: ",
+                "[{} : {} / {}]: ",
                 file.file_name().unwrap().to_string_lossy(),
                 sentence_i + 1,
                 sentences_size
@@ -83,7 +83,6 @@ fn main() -> anyhow::Result<()> {
                 .filter_map(|l| l.phoneme.c.clone())
                 .collect::<Vec<_>>();
             if ojt_phonemes == jp_phonemes {
-                // println!("{}OK", prefix);
                 matches += 1;
             } else {
                 let differences = if ojt_phonemes.len() == jp_phonemes.len() {
@@ -218,50 +217,50 @@ fn main() -> anyhow::Result<()> {
                     let mut ojt_buffer = String::new();
                     let mut jp_buffer = String::new();
 
-                    for (i, (ojt_phoneme, jp_phoneme)) in
-                        itertools::izip!(ojt_phonemes.iter(), jp_phonemes.iter()).enumerate()
-                    {
-                        let length = ojt_phoneme.len().max(jp_phoneme.len());
+                    for (i, ojt_phoneme) in ojt_phonemes.iter().enumerate() {
+                        let length = ojt_phoneme.len();
                         if i == ojt_light_mismatch_left {
                             ojt_buffer.push_str("\x1b[33m");
                         }
-                        if i == jp_light_mismatch_left {
-                            jp_buffer.push_str("\x1b[33m");
-                        }
                         if i == ojt_fatal_mismatch_left {
                             ojt_buffer.push_str("\x1b[31m");
+                        }
+
+                        ojt_buffer.push_str(&format!("{:>width$}", ojt_phoneme, width = length));
+
+                        if i == ojt_fatal_mismatch_right {
+                            ojt_buffer.push_str("\x1b[33m");
+                        }
+                        if i == ojt_light_mismatch_right {
+                            ojt_buffer.push_str("\x1b[0m");
+                        }
+
+                        ojt_buffer.push(' ');
+                    }
+                    for (i, jp_phoneme) in jp_phonemes.iter().enumerate() {
+                        let length = jp_phoneme.len();
+                        if i == jp_light_mismatch_left {
+                            jp_buffer.push_str("\x1b[33m");
                         }
                         if i == jp_fatal_mismatch_left {
                             jp_buffer.push_str("\x1b[31m");
                         }
 
-                        ojt_buffer.push_str(&format!("{:>width$}", ojt_phoneme, width = length));
                         jp_buffer.push_str(&format!("{:>width$}", jp_phoneme, width = length));
 
-                        if i == ojt_fatal_mismatch_right {
-                            ojt_buffer.push_str("\x1b[33m");
-                        }
                         if i == jp_fatal_mismatch_right {
                             jp_buffer.push_str("\x1b[33m");
-                        }
-                        if i == ojt_light_mismatch_right {
-                            ojt_buffer.push_str("\x1b[0m");
                         }
                         if i == jp_light_mismatch_right {
                             jp_buffer.push_str("\x1b[0m");
                         }
 
-                        ojt_buffer.push(' ');
                         jp_buffer.push(' ');
                     }
                     ojt_buffer = ojt_buffer.trim().to_string();
                     jp_buffer = jp_buffer.trim().to_string();
-                    if ojt_light_mismatch_right == ojt_phonemes.len() {
-                        ojt_buffer.push_str("\x1b[0m");
-                    }
-                    if jp_light_mismatch_right == jp_phonemes.len() {
-                        jp_buffer.push_str("\x1b[0m");
-                    }
+                    ojt_buffer.push_str("\x1b[0m");
+                    jp_buffer.push_str("\x1b[0m");
 
                     println!("     Original: {}", sentence);
                     fatal_mismatches += 1;
