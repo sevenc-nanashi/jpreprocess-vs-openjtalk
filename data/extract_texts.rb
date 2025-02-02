@@ -5,12 +5,13 @@ files = ARGV
 files.each do |file|
   content = JSON.parse(File.read(file))
   destination = file.gsub(".vvproj", ".txt")
+  talk_root = content["talk"] || content
 
-  audio_keys = content["talk"]["audioKeys"]
+  audio_keys = talk_root["audioKeys"]
   lines =
     audio_keys
       .map do |audio_key|
-        "#{content["talk"]["audioItems"][audio_key]["text"]}。"
+        "#{talk_root["audioItems"][audio_key]["text"]}。"
       end
       .join("\n")
 
