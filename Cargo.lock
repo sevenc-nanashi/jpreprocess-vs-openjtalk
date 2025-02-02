@@ -18,55 +18,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anstream"
-version = "0.6.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8acc5369981196006228e28809f761875c0327210a891e941f4c683b3a99529b"
-dependencies = [
- "anstyle",
- "anstyle-parse",
- "anstyle-query",
- "anstyle-wincon",
- "colorchoice",
- "is_terminal_polyfill",
- "utf8parse",
-]
-
-[[package]]
-name = "anstyle"
-version = "1.0.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55cc3b69f167a1ef2e161439aa98aed94e6028e5f9a59be9a6ffb47aef1651f9"
-
-[[package]]
-name = "anstyle-parse"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b2d16507662817a6a20a9ea92df6652ee4f94f914589377d69f3b21bc5798a9"
-dependencies = [
- "utf8parse",
-]
-
-[[package]]
-name = "anstyle-query"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79947af37f4177cfead1110013d678905c37501914fba0efea834c3fe9a8d60c"
-dependencies = [
- "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "anstyle-wincon"
-version = "3.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2109dbce0e72be3ec00bed26e6a7479ca384ad226efdd66db8fa2e3a38c83125"
-dependencies = [
- "anstyle",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -170,12 +121,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "colorchoice"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
-
-[[package]]
 name = "crc32fast"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -228,6 +173,72 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5efa2b3d7902f4b634a20cae3c9c4e6209dc4779feb6863329607560143efa70"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "darling"
+version = "0.20.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f63b86c8a8826a49b8c21f08a2d07338eec8d900540f8630dc76284be802989"
+dependencies = [
+ "darling_core",
+ "darling_macro",
+]
+
+[[package]]
+name = "darling_core"
+version = "0.20.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95133861a8032aaea082871032f5815eb9e98cef03fa916ab4500513994df9e5"
+dependencies = [
+ "fnv",
+ "ident_case",
+ "proc-macro2",
+ "quote",
+ "strsim",
+ "syn",
+]
+
+[[package]]
+name = "darling_macro"
+version = "0.20.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d336a2a514f6ccccaa3e09b02d41d35330c07ddf03a62165fcec10bb561c7806"
+dependencies = [
+ "darling_core",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "derive_builder"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "507dfb09ea8b7fa618fcf76e953f4f5e192547945816d5358edffe39f6f94947"
+dependencies = [
+ "derive_builder_macro",
+]
+
+[[package]]
+name = "derive_builder_core"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d5bcf7b024d6835cfb3d473887cd966994907effbe9227e8c8219824d06c4e8"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "derive_builder_macro"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab63b0e2bf4d5928aff72e83a7dace85d7bba5fe12dcc3c5a572d78caffd3f3c"
+dependencies = [
+ "derive_builder_core",
+ "syn",
 ]
 
 [[package]]
@@ -330,29 +341,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "env_filter"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "186e05a59d4c50738528153b83b0b0194d3a29507dfec16eccd4b342903397d0"
-dependencies = [
- "log",
- "regex",
-]
-
-[[package]]
-name = "env_logger"
-version = "0.11.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcaee3d8e3cfc3fd92428d477bc97fc29ec8716d180c0d74c643bb26166660e0"
-dependencies = [
- "anstream",
- "anstyle",
- "env_filter",
- "humantime",
- "log",
-]
-
-[[package]]
 name = "errno"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -385,6 +373,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fnv"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
+
+[[package]]
 name = "form_urlencoded"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -415,12 +409,6 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
-
-[[package]]
-name = "humantime"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "icu_collections"
@@ -541,6 +529,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ident_case"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
+
+[[package]]
 name = "idna"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -560,12 +554,6 @@ dependencies = [
  "icu_normalizer",
  "icu_properties",
 ]
-
-[[package]]
-name = "is_terminal_polyfill"
-version = "1.70.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7943c866cc5cd64cbc25b2e01621d07fa8eb2a1a23160ee81ce38704e97b8ecf"
 
 [[package]]
 name = "itertools"
@@ -602,14 +590,12 @@ dependencies = [
 
 [[package]]
 name = "jpreprocess"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "096ad23a36852307d4164f9335ca9887b4639b673fb128faa46e63e884f1d044"
+version = "0.10.0"
+source = "git+https://github.com/jpreprocess/jpreprocess#d67fca32358fdeab07f9bd60fb8761b4f08d7422"
 dependencies = [
  "jlabel",
  "jpreprocess-core",
  "jpreprocess-dictionary",
- "jpreprocess-dictionary-builder",
  "jpreprocess-jpcommon",
  "jpreprocess-naist-jdic",
  "jpreprocess-njd",
@@ -621,9 +607,8 @@ dependencies = [
 
 [[package]]
 name = "jpreprocess-core"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5e274f1a2842d8a788e6d0f2f6d201f207bae0d9f2a274cb7a529ce1762238b"
+version = "0.10.0"
+source = "git+https://github.com/jpreprocess/jpreprocess#d67fca32358fdeab07f9bd60fb8761b4f08d7422"
 dependencies = [
  "aho-corasick",
  "bincode",
@@ -637,26 +622,8 @@ dependencies = [
 
 [[package]]
 name = "jpreprocess-dictionary"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a67dcb6ad1b3016c5631bdc3cf3745e4f942d245a8d7b30310ceaddb8976d3c"
-dependencies = [
- "anyhow",
- "bincode",
- "byteorder",
- "jpreprocess-core",
- "lindera-core",
- "lindera-ipadic-builder",
- "lindera-tokenizer",
- "once_cell",
- "serde",
-]
-
-[[package]]
-name = "jpreprocess-dictionary-builder"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a09f4b974067bde9a84c80a1ace46e235b5f4a3bf64bbb61eb6cb214faa6a18f"
+version = "0.10.0"
+source = "git+https://github.com/jpreprocess/jpreprocess#d67fca32358fdeab07f9bd60fb8761b4f08d7422"
 dependencies = [
  "anyhow",
  "bincode",
@@ -664,9 +631,11 @@ dependencies = [
  "csv",
  "glob",
  "jpreprocess-core",
- "jpreprocess-dictionary",
  "lindera-core",
+ "lindera-ipadic-builder",
+ "lindera-tokenizer",
  "log",
+ "once_cell",
  "rayon",
  "serde",
  "yada",
@@ -674,9 +643,8 @@ dependencies = [
 
 [[package]]
 name = "jpreprocess-jpcommon"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8971aec0fe591a087971502a77b57173205aa97d8f1c5d7dfdfa22738f0a0e4"
+version = "0.10.0"
+source = "git+https://github.com/jpreprocess/jpreprocess#d67fca32358fdeab07f9bd60fb8761b4f08d7422"
 dependencies = [
  "jlabel",
  "jpreprocess-core",
@@ -685,14 +653,12 @@ dependencies = [
 
 [[package]]
 name = "jpreprocess-naist-jdic"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fd4694e565913b9d1538782f6a388891c47392e8011dee169f807176da20417"
+version = "0.10.0"
+source = "git+https://github.com/jpreprocess/jpreprocess#d67fca32358fdeab07f9bd60fb8761b4f08d7422"
 dependencies = [
  "encoding",
  "flate2",
  "jpreprocess-dictionary",
- "jpreprocess-dictionary-builder",
  "lindera-core",
  "tar",
  "ureq",
@@ -700,9 +666,8 @@ dependencies = [
 
 [[package]]
 name = "jpreprocess-njd"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b33a202e9ff6fd370d2fbd06b5ffae9533c793de351d93a40a7ee30a9d4acac0"
+version = "0.10.0"
+source = "git+https://github.com/jpreprocess/jpreprocess#d67fca32358fdeab07f9bd60fb8761b4f08d7422"
 dependencies = [
  "aho-corasick",
  "jpreprocess-core",
@@ -729,9 +694,8 @@ dependencies = [
 
 [[package]]
 name = "jpreprocess-window"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "542a5a9f9480726692efe8e932348b17bb8c70c8019a40f1be5a5fff13693f11"
+version = "0.10.0"
+source = "git+https://github.com/jpreprocess/jpreprocess#d67fca32358fdeab07f9bd60fb8761b4f08d7422"
 
 [[package]]
 name = "lazy-regex"
@@ -785,28 +749,21 @@ dependencies = [
 
 [[package]]
 name = "lindera-cc-cedict-builder"
-version = "0.30.0"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6022a8309a287dbef425fd09a61585351670c83001d74f6c089979e2330b683"
+checksum = "85b8f642bc9c9130682569975772a17336c6aab26d11fc0f823f3e663167ace6"
 dependencies = [
  "anyhow",
- "bincode",
- "byteorder",
- "csv",
- "encoding",
- "env_logger",
- "glob",
  "lindera-core",
  "lindera-decompress",
- "log",
- "yada",
+ "lindera-dictionary-builder",
 ]
 
 [[package]]
 name = "lindera-core"
-version = "0.30.0"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9a0e858753a02b1a3524fae4fbb11ca4b3a947128fd7854b797386562678be8"
+checksum = "0c28191456debc98af6aa5f7db77872471983e9fa2a737b1c232b6ef543aed62"
 dependencies = [
  "anyhow",
  "bincode",
@@ -821,9 +778,9 @@ dependencies = [
 
 [[package]]
 name = "lindera-decompress"
-version = "0.30.0"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e406345f6f8b665b9a129c67079c18ca9d97e9d171d102b4106a64a592c285e"
+checksum = "4788a1ead2f63f3fc2888109272921dedd86a87b7d0bf05e9daab46600daac51"
 dependencies = [
  "anyhow",
  "flate2",
@@ -832,9 +789,9 @@ dependencies = [
 
 [[package]]
 name = "lindera-dictionary"
-version = "0.30.0"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e2a3ec0e5fd6768a27c6ec1040e8470d3a5926418f7afe065859e98aabb3bfe"
+checksum = "bdf5f91725e32b9a21b1656baa7030766c9bafc4de4b4ddeb8ffdde7224dd2f6"
 dependencies = [
  "anyhow",
  "bincode",
@@ -851,71 +808,67 @@ dependencies = [
 ]
 
 [[package]]
-name = "lindera-ipadic-builder"
-version = "0.30.0"
+name = "lindera-dictionary-builder"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f0979a56bc57e9c9be2996dff232c47aa146a2e7baebf5dd567e388eba3dd90"
+checksum = "e41f00ba7ac541b0ffd8c30e7a73f2dd197546cc5780462ec4f2e4782945a780"
 dependencies = [
  "anyhow",
  "bincode",
  "byteorder",
  "csv",
+ "derive_builder",
+ "encoding",
  "encoding_rs",
  "encoding_rs_io",
- "env_logger",
  "glob",
  "lindera-core",
  "lindera-decompress",
  "log",
- "serde",
  "yada",
+]
+
+[[package]]
+name = "lindera-ipadic-builder"
+version = "0.32.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf5031c52686128db13f774b2c5a8abfd52b4cc1f904041d8411aa19d630ce4d"
+dependencies = [
+ "anyhow",
+ "lindera-core",
+ "lindera-decompress",
+ "lindera-dictionary-builder",
 ]
 
 [[package]]
 name = "lindera-ipadic-neologd-builder"
-version = "0.30.0"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eccd18ed5f65d1d64ac0cbfa1d6827bfbbaf6530520ae6847e6a91ee38f47e20"
+checksum = "abf36e40ace904741efdd883ed5c4dba6425f65156a0fb5d3f73a386335950dc"
 dependencies = [
  "anyhow",
- "bincode",
- "byteorder",
- "csv",
- "encoding_rs",
- "encoding_rs_io",
- "env_logger",
- "glob",
  "lindera-core",
  "lindera-decompress",
- "log",
- "serde",
- "yada",
+ "lindera-dictionary-builder",
 ]
 
 [[package]]
 name = "lindera-ko-dic-builder"
-version = "0.30.0"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae176afa8535ca2a5ee9471873f85d531db0a6c32a3c42b41084506aac22b577"
+checksum = "9f2c60425abc1548570c2568858f74a1f042105ecd89faa39c651b4315350fd9"
 dependencies = [
  "anyhow",
- "bincode",
- "byteorder",
- "csv",
- "encoding",
- "env_logger",
- "glob",
  "lindera-core",
  "lindera-decompress",
- "log",
- "yada",
+ "lindera-dictionary-builder",
 ]
 
 [[package]]
 name = "lindera-tokenizer"
-version = "0.30.0"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "457285bdde84571aa510c9e05371904305a55e8a541fa1473d4393062f06932d"
+checksum = "903e558981bcb6f59870aa7d6b4bcb09e8f7db778886a6a70f67fd74c9fa2ca3"
 dependencies = [
  "bincode",
  "lindera-core",
@@ -927,21 +880,14 @@ dependencies = [
 
 [[package]]
 name = "lindera-unidic-builder"
-version = "0.30.0"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcaab8f061d5b944b1e424f49c7efbf8f276e8a72e4f4ff956d01e46d481f008"
+checksum = "99e2c50015c242e02c451acb6748667ac6fd1d3d667cd7db48cd89e2f2d2377e"
 dependencies = [
  "anyhow",
- "bincode",
- "byteorder",
- "csv",
- "encoding",
- "env_logger",
- "glob",
  "lindera-core",
  "lindera-decompress",
- "log",
- "yada",
+ "lindera-dictionary-builder",
 ]
 
 [[package]]
@@ -1318,6 +1264,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
+name = "strsim"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
 name = "strum"
 version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1458,12 +1410,6 @@ name = "utf8_iter"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
-
-[[package]]
-name = "utf8parse"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "wasi"
