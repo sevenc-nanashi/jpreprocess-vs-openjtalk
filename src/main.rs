@@ -40,6 +40,8 @@ fn main() -> anyhow::Result<()> {
         None,
     );
 
+    let mut file_stats = vec![];
+
     let files = std::env::args().skip(1).map(std::path::PathBuf::from);
     for file in files {
         let text = std::fs::read_to_string(&file)?;
@@ -270,19 +272,23 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        println!(
+        file_stats.push(format!(
             "{}: {} matches, {} light mismatches, {} fatal mismatches, {} errors",
             file.file_name().unwrap().to_string_lossy(),
             matches,
             light_mismatches,
             fatal_mismatches,
             errors
-        );
+        ));
 
         total_matches += matches;
         total_light_mismatches += light_mismatches;
         total_fatal_mismatches += fatal_mismatches;
         total_errors += errors;
+    }
+
+    for file_stat in file_stats {
+        println!("{}", file_stat);
     }
 
     println!(
