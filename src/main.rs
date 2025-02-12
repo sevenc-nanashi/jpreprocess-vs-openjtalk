@@ -95,6 +95,8 @@ fn main() -> anyhow::Result<()> {
                         "Both"
                     } else if r1.is_err() {
                         "OpenJTalk"
+                    } else if r2.as_ref().unwrap_err().to_string().contains("panicked!") {
+                        "JPreprocess (panicked)"
                     } else {
                         "JPreprocess"
                     };
