@@ -100,7 +100,7 @@ fn main() -> anyhow::Result<()> {
                     } else {
                         "JPreprocess"
                     };
-                    println!("{} \x1b[35m{} Error:\x1b[0m", kind, prefix);
+                    println!("{} \x1b[35m{} Error:\x1b[0m", prefix, kind);
                     println!("     Original: {}", sentence);
                     println!("    OpenJTalk: {:?}", r1.map(|_| ()));
                     println!("  JPreprocess: {:?}", r2.map(|_| ()));
@@ -321,8 +321,10 @@ fn main() -> anyhow::Result<()> {
 
     for file_stat in file_stats {
         println!("{}", file_stat);
+        println!();
     }
 
+    println!();
     println!(
         "Total: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m",
         total_matches, total_light_mismatches, total_fatal_mismatches, total_jp_errors, total_ojt_errors
