@@ -1,4 +1,5 @@
 use open_jtalk::{text2mecab, JpCommon, ManagedResource, Mecab, Njd};
+use std::panic;
 use std::str::FromStr;
 
 static DICT_DIR: &str = concat!(
@@ -32,6 +33,9 @@ fn main() -> anyhow::Result<()> {
     let mut total_fatal_mismatches = 0;
     let mut total_errors = 0;
 
+    let mut file_stats = vec![];
+
+    #[cfg(not(feature = "panic_safe"))]
     let jp = jpreprocess::JPreprocess::with_dictionaries(
         jpreprocess::SystemDictionaryConfig::Bundled(
             jpreprocess::kind::JPreprocessDictionaryKind::NaistJdic,
@@ -39,8 +43,6 @@ fn main() -> anyhow::Result<()> {
         .load()?,
         None,
     );
-
-    let mut file_stats = vec![];
 
     let files = std::env::args().skip(1).map(std::path::PathBuf::from);
     for file in files {
@@ -64,11 +66,30 @@ fn main() -> anyhow::Result<()> {
                 sentences_size
             );
             let ojt_labels = extract_fullcontext(sentence);
-            let jp_labels = jp.extract_fullcontext(sentence);
+            #[cfg(feature = "panic_safe")]
+            let jp_labels = panic::catch_unwind(|| {
+                let jp = jpreprocess::JPreprocess::with_dictionaries(
+                    jpreprocess::SystemDictionaryConfig::Bundled(
+                        jpreprocess::kind::JPreprocessDictionaryKind::NaistJdic,
+                    )
+                    .load()?,
+                    None,
+                );
+
+                jp.extract_fullcontext(sentence)
+                    .map_err(anyhow::Error::from)
+            })
+            .map_err(|e| anyhow::anyhow!("panicked! {:?}", e.downcast_ref::<String>()))
+            .and_then(|r| r);
+            #[cfg(not(feature = "panic_safe"))]
+            let jp_labels = jp
+                .extract_fullcontext(sentence)
+                .map_err(anyhow::Error::from);
+
             let (ojt_labels, jp_labels) = match (ojt_labels, jp_labels) {
                 (Ok(ojt_labels), Ok(jp_labels)) => (ojt_labels, jp_labels),
                 (r1, r2) => {
-                    println!("{} \x1b[31mError:\x1b[0m", prefix);
+                    println!("{} \x1b[35mError:\x1b[0m", prefix);
                     println!("     Original: {}", sentence);
                     println!("    OpenJTalk: {:?}", r1.map(|_| ()));
                     println!("  JPreprocess: {:?}", r2.map(|_| ()));

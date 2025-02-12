@@ -3,11 +3,14 @@ name = "jpreprocess-vs-openjtalk"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+panic_safe = []
+
 [dependencies]
 anyhow = "1.0.95"
 itertools = "0.14.0"
 jlabel = "0.1.4"
-jpreprocess = { version = "0.10", features = [
+jpreprocess = { version = "0.11", features = [
   "naist-jdic",
 ], git = "https://github.com/jpreprocess/jpreprocess" }
 lazy-regex = "3.4.1"
