@@ -1,5 +1,4 @@
 /target
 /data/open_jtalk_dic_utf_8-1.11
 
-/output.log
-/output.ansi.log
+*.log

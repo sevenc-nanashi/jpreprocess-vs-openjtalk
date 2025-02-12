@@ -898,7 +898,7 @@ dependencies = [
 [[package]]
 name = "jpreprocess"
 version = "0.11.0"
-source = "git+https://github.com/jpreprocess/jpreprocess#ef0a7f6519d7cdf05b971f2da15165a4ef9ec959"
+source = "git+https://github.com/jpreprocess/jpreprocess?branch=jodoushi-doushi#7d28d25bcf350a32f46dac985aa093352e71543f"
 dependencies = [
  "jlabel",
  "jpreprocess-core",
@@ -914,7 +914,7 @@ dependencies = [
 [[package]]
 name = "jpreprocess-core"
 version = "0.11.0"
-source = "git+https://github.com/jpreprocess/jpreprocess#ef0a7f6519d7cdf05b971f2da15165a4ef9ec959"
+source = "git+https://github.com/jpreprocess/jpreprocess?branch=jodoushi-doushi#7d28d25bcf350a32f46dac985aa093352e71543f"
 dependencies = [
  "aho-corasick",
  "bincode",
@@ -928,7 +928,7 @@ dependencies = [
 [[package]]
 name = "jpreprocess-dictionary"
 version = "0.11.0"
-source = "git+https://github.com/jpreprocess/jpreprocess#ef0a7f6519d7cdf05b971f2da15165a4ef9ec959"
+source = "git+https://github.com/jpreprocess/jpreprocess?branch=jodoushi-doushi#7d28d25bcf350a32f46dac985aa093352e71543f"
 dependencies = [
  "anyhow",
  "bincode",
@@ -949,7 +949,7 @@ dependencies = [
 [[package]]
 name = "jpreprocess-jpcommon"
 version = "0.11.0"
-source = "git+https://github.com/jpreprocess/jpreprocess#ef0a7f6519d7cdf05b971f2da15165a4ef9ec959"
+source = "git+https://github.com/jpreprocess/jpreprocess?branch=jodoushi-doushi#7d28d25bcf350a32f46dac985aa093352e71543f"
 dependencies = [
  "jlabel",
  "jpreprocess-core",
@@ -959,7 +959,7 @@ dependencies = [
 [[package]]
 name = "jpreprocess-naist-jdic"
 version = "0.11.0"
-source = "git+https://github.com/jpreprocess/jpreprocess#ef0a7f6519d7cdf05b971f2da15165a4ef9ec959"
+source = "git+https://github.com/jpreprocess/jpreprocess?branch=jodoushi-doushi#7d28d25bcf350a32f46dac985aa093352e71543f"
 dependencies = [
  "jpreprocess-dictionary",
  "lindera-dictionary",
@@ -969,7 +969,7 @@ dependencies = [
 [[package]]
 name = "jpreprocess-njd"
 version = "0.11.0"
-source = "git+https://github.com/jpreprocess/jpreprocess#ef0a7f6519d7cdf05b971f2da15165a4ef9ec959"
+source = "git+https://github.com/jpreprocess/jpreprocess?branch=jodoushi-doushi#7d28d25bcf350a32f46dac985aa093352e71543f"
 dependencies = [
  "aho-corasick",
  "jpreprocess-core",
@@ -996,7 +996,7 @@ dependencies = [
 [[package]]
 name = "jpreprocess-window"
 version = "0.11.0"
-source = "git+https://github.com/jpreprocess/jpreprocess#ef0a7f6519d7cdf05b971f2da15165a4ef9ec959"
+source = "git+https://github.com/jpreprocess/jpreprocess?branch=jodoushi-doushi#7d28d25bcf350a32f46dac985aa093352e71543f"
 
 [[package]]
 name = "js-sys"

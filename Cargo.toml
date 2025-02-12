@@ -10,9 +10,9 @@ panic_safe = []
 anyhow = "1.0.95"
 itertools = "0.14.0"
 jlabel = "0.1.4"
-jpreprocess = { version = "0.11", features = [
+jpreprocess = { features = [
   "naist-jdic",
-], git = "https://github.com/jpreprocess/jpreprocess" }
+], git = "https://github.com/jpreprocess/jpreprocess", branch = "jodoushi-doushi" }
 lazy-regex = "3.4.1"
 open_jtalk = { git = "https://github.com/voicevox/open_jtalk-rs" }
 
