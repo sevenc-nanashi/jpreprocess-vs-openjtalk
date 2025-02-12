@@ -321,7 +321,6 @@ fn main() -> anyhow::Result<()> {
 
     for file_stat in file_stats {
         println!("{}", file_stat);
-        println!();
     }
 
     println!();
