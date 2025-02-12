@@ -31,12 +31,12 @@ fn main() -> anyhow::Result<()> {
     let mut total_matches = 0;
     let mut total_light_mismatches = 0;
     let mut total_fatal_mismatches = 0;
-    let mut total_errors = 0;
+    let mut total_jp_errors = 0;
+    let mut total_ojt_errors = 0;
 
     let mut file_stats = vec![];
 
-    #[cfg(not(feature = "panic_safe"))]
-    let jp = jpreprocess::JPreprocess::with_dictionaries(
+    let mut jp = jpreprocess::JPreprocess::with_dictionaries(
         jpreprocess::SystemDictionaryConfig::Bundled(
             jpreprocess::kind::JPreprocessDictionaryKind::NaistJdic,
         )
@@ -57,7 +57,8 @@ fn main() -> anyhow::Result<()> {
         let mut matches = 0;
         let mut light_mismatches = 0;
         let mut fatal_mismatches = 0;
-        let mut errors = 0;
+        let mut jp_errors = 0;
+        let mut ojt_errors = 0;
         for (sentence_i, sentence) in sentences.iter().enumerate() {
             let prefix = format!(
                 "[{} : {} / {}]: ",
@@ -66,34 +67,41 @@ fn main() -> anyhow::Result<()> {
                 sentences_size
             );
             let ojt_labels = extract_fullcontext(sentence);
-            #[cfg(feature = "panic_safe")]
-            let jp_labels = panic::catch_unwind(|| {
-                let jp = jpreprocess::JPreprocess::with_dictionaries(
-                    jpreprocess::SystemDictionaryConfig::Bundled(
-                        jpreprocess::kind::JPreprocessDictionaryKind::NaistJdic,
-                    )
-                    .load()?,
-                    None,
-                );
-
+            let jp_labels = panic::catch_unwind(panic::AssertUnwindSafe(|| {
                 jp.extract_fullcontext(sentence)
                     .map_err(anyhow::Error::from)
-            })
+            }))
             .map_err(|e| anyhow::anyhow!("panicked! {:?}", e.downcast_ref::<String>()))
             .and_then(|r| r);
-            #[cfg(not(feature = "panic_safe"))]
-            let jp_labels = jp
-                .extract_fullcontext(sentence)
-                .map_err(anyhow::Error::from);
 
             let (ojt_labels, jp_labels) = match (ojt_labels, jp_labels) {
                 (Ok(ojt_labels), Ok(jp_labels)) => (ojt_labels, jp_labels),
                 (r1, r2) => {
-                    println!("{} \x1b[35mError:\x1b[0m", prefix);
+                    if r1.is_err() {
+                        ojt_errors += 1;
+                    }
+                    if r2.is_err() {
+                        jp_errors += 1;
+                        // 念のためリセット
+                        jp = jpreprocess::JPreprocess::with_dictionaries(
+                            jpreprocess::SystemDictionaryConfig::Bundled(
+                                jpreprocess::kind::JPreprocessDictionaryKind::NaistJdic,
+                            )
+                            .load()?,
+                            None,
+                        );
+                    }
+                    let kind = if r1.is_err() && r2.is_err() {
+                        "Both"
+                    } else if r1.is_err() {
+                        "OpenJTalk"
+                    } else {
+                        "JPreprocess"
+                    };
+                    println!("{} \x1b[35m{} Error:\x1b[0m", kind, prefix);
                     println!("     Original: {}", sentence);
                     println!("    OpenJTalk: {:?}", r1.map(|_| ()));
                     println!("  JPreprocess: {:?}", r2.map(|_| ()));
-                    errors += 1;
                     continue;
                 }
             };
@@ -294,18 +302,19 @@ fn main() -> anyhow::Result<()> {
         }
 
         file_stats.push(format!(
-            "{}: {} matches, {} light mismatches, {} fatal mismatches, {} errors",
+            "{}: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m",
             file.file_name().unwrap().to_string_lossy(),
             matches,
             light_mismatches,
             fatal_mismatches,
-            errors
+            jp_errors,  ojt_errors
         ));
 
         total_matches += matches;
         total_light_mismatches += light_mismatches;
         total_fatal_mismatches += fatal_mismatches;
-        total_errors += errors;
+        total_jp_errors += jp_errors;
+        total_ojt_errors += ojt_errors;
     }
 
     for file_stat in file_stats {
@@ -313,8 +322,8 @@ fn main() -> anyhow::Result<()> {
     }
 
     println!(
-        "Total: {} matches, {} light mismatches, {} fatal mismatches, {} errors",
-        total_matches, total_light_mismatches, total_fatal_mismatches, total_errors
+        "Total: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m",
+        total_matches, total_light_mismatches, total_fatal_mismatches, total_jp_errors, total_ojt_errors
     );
 
     Ok(())
