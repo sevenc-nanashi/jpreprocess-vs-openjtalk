@@ -17,7 +17,8 @@ fn download_open_jtalk_dict(dist: &std::path::Path) -> anyhow::Result<()> {
 
 fn main() -> anyhow::Result<()> {
     let dist = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
-    if !dist.exists() {
+    let dict_path = dist.join(DIC_DIR_NAME);
+    if !dict_path.exists() {
         download_open_jtalk_dict(&dist)?;
     }
     Ok(())

@@ -1,9 +1,9 @@
 # openjtalk-vs-jpreprocess
 
-比較用。最新の比較結果は GitHub Pages で公開されています：
-https://sevenc-nanashi.github.io/jpreprocess-vs-openjtalk/
+比較用。
 
-> **初回セットアップ**: リポジトリの Settings → Pages → Build and deployment の Source を「GitHub Actions」に変更してください。
+最新の比較結果は GitHub Pages で公開されています：
+<https://sevenc-nanashi.github.io/jpreprocess-vs-openjtalk/>
 
 ## 比較対象
 
