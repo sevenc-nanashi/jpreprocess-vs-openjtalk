@@ -1,0 +1,62 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install OpenJTalk build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake clang
+
+      - name: Cache OpenJTalk dictionary
+        uses: actions/cache@v4
+        with:
+          path: data/open_jtalk_dic_utf_8-1.11
+          key: ojt-dic-1.11
+
+      - name: Run comparison and emit JSON
+        run: cargo run --release -- --json frontend/public/results.json ./data/*.txt
+
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: "22"
+          cache: true
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: vp install
+
+      - name: Build frontend
+        working-directory: frontend
+        run: vp build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

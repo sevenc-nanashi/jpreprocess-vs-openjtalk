@@ -8,6 +8,7 @@ panic_safe = []
 
 [dependencies]
 anyhow = "1.0.95"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 itertools = "0.14.0"
 jlabel = "0.1.4"
 jpreprocess = { features = [
@@ -15,6 +16,8 @@ jpreprocess = { features = [
 ], git = "https://github.com/jpreprocess/jpreprocess", branch = "jodoushi-doushi" }
 lazy-regex = "3.4.1"
 open_jtalk = { git = "https://github.com/voicevox/open_jtalk-rs" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [build-dependencies]
 anyhow = "1.0.95"

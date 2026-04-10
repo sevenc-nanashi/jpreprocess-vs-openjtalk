@@ -1,4 +1,5 @@
 use open_jtalk::{text2mecab, JpCommon, ManagedResource, Mecab, Njd};
+use serde::Serialize;
 use std::panic;
 use std::str::FromStr;
 
@@ -22,19 +23,153 @@ enum Difference {
     Fatal,
 }
 
+// ---- JSON output types ----
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Results {
+    generated_at: String,
+    commit: String,
+    totals: Stats,
+    files: Vec<FileResult>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Stats {
+    total: usize,
+    matches: usize,
+    light_mismatches: usize,
+    fatal_mismatches: usize,
+    jp_errors: usize,
+    ojt_errors: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileResult {
+    file: String,
+    stats: Stats,
+    entries: Vec<Entry>,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+enum Entry {
+    #[serde(rename = "match")]
+    Match(MatchEntry),
+    #[serde(rename = "light")]
+    Light(MismatchEntry),
+    #[serde(rename = "fatal")]
+    Fatal(MismatchEntry),
+    #[serde(rename = "jp_error")]
+    JpError(ErrorEntry),
+    #[serde(rename = "ojt_error")]
+    OjtError(ErrorEntry),
+    #[serde(rename = "both_error")]
+    BothError(ErrorEntry),
+    #[serde(rename = "jp_panic")]
+    JpPanic(ErrorEntry),
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MatchEntry {
+    index: usize,
+    original: String,
+    openjtalk: Vec<Phoneme>,
+    jpreprocess: Vec<Phoneme>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MismatchEntry {
+    index: usize,
+    original: String,
+    openjtalk: Vec<Phoneme>,
+    jpreprocess: Vec<Phoneme>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    length_mismatch: Option<bool>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ErrorEntry {
+    index: usize,
+    original: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    openjtalk_error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    jpreprocess_error: Option<String>,
+}
+
+#[derive(Serialize)]
+struct Phoneme {
+    value: String,
+    diff: DiffKind,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+enum DiffKind {
+    None,
+    Light,
+    Fatal,
+}
+
+// Compute per-phoneme diffs between two phoneme sequences.
+// For positions beyond the shorter list, the extra phonemes are Fatal.
+fn phonemes_with_diff(primary: &[String], other: &[String]) -> Vec<Phoneme> {
+    primary
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let diff = if i >= other.len() {
+                DiffKind::Fatal
+            } else if p == &other[i] {
+                DiffKind::None
+            } else if p.eq_ignore_ascii_case(&other[i]) {
+                DiffKind::Light
+            } else {
+                DiffKind::Fatal
+            };
+            Phoneme {
+                value: p.clone(),
+                diff,
+            }
+        })
+        .collect()
+}
+
 fn main() -> anyhow::Result<()> {
     {
         let mut resources = OJT_RESOURCES.lock().unwrap();
         resources.mecab.load(DICT_DIR)?;
     }
 
-    let mut total_matches = 0;
-    let mut total_light_mismatches = 0;
-    let mut total_fatal_mismatches = 0;
-    let mut total_jp_errors = 0;
-    let mut total_ojt_errors = 0;
+    // Parse --json <path> from args
+    let raw_args: Vec<String> = std::env::args().skip(1).collect();
+    let mut json_path: Option<String> = None;
+    let mut file_paths: Vec<std::path::PathBuf> = vec![];
+    {
+        let mut iter = raw_args.into_iter();
+        while let Some(arg) = iter.next() {
+            if arg == "--json" {
+                json_path = iter.next();
+            } else {
+                file_paths.push(std::path::PathBuf::from(arg));
+            }
+        }
+    }
 
-    let mut file_stats = vec![];
+    let mut total_matches = 0usize;
+    let mut total_light_mismatches = 0usize;
+    let mut total_fatal_mismatches = 0usize;
+    let mut total_jp_errors = 0usize;
+    let mut total_ojt_errors = 0usize;
+
+    let mut file_stats_display = vec![];
+    let mut all_file_results: Vec<FileResult> = vec![];
 
     let mut jp = jpreprocess::JPreprocess::with_dictionaries(
         jpreprocess::SystemDictionaryConfig::Bundled(
@@ -44,9 +179,8 @@ fn main() -> anyhow::Result<()> {
         None,
     );
 
-    let files = std::env::args().skip(1).map(std::path::PathBuf::from);
-    for file in files {
-        let text = std::fs::read_to_string(&file)?;
+    for file in &file_paths {
+        let text = std::fs::read_to_string(file)?;
         let sentences = lazy_regex::regex!("[。「」]")
             .split(&text)
             .map(|s| lazy_regex::regex_replace_all!(r"\s+", s, ""))
@@ -54,11 +188,13 @@ fn main() -> anyhow::Result<()> {
             .collect::<Vec<_>>();
 
         let sentences_size = sentences.len();
-        let mut matches = 0;
-        let mut light_mismatches = 0;
-        let mut fatal_mismatches = 0;
-        let mut jp_errors = 0;
-        let mut ojt_errors = 0;
+        let mut matches = 0usize;
+        let mut light_mismatches = 0usize;
+        let mut fatal_mismatches = 0usize;
+        let mut jp_errors = 0usize;
+        let mut ojt_errors = 0usize;
+        let mut entries: Vec<Entry> = vec![];
+
         for (sentence_i, sentence) in sentences.iter().enumerate() {
             let prefix = format!(
                 "[{} : {} / {}]: ",
@@ -77,6 +213,8 @@ fn main() -> anyhow::Result<()> {
             let (ojt_labels, jp_labels) = match (ojt_labels, jp_labels) {
                 (Ok(ojt_labels), Ok(jp_labels)) => (ojt_labels, jp_labels),
                 (r1, r2) => {
+                    let ojt_err = r1.as_ref().err().map(|e| e.to_string());
+                    let jp_err = r2.as_ref().err().map(|e| e.to_string());
                     if r1.is_err() {
                         ojt_errors += 1;
                     }
@@ -104,6 +242,19 @@ fn main() -> anyhow::Result<()> {
                     println!("     Original: {}", sentence);
                     println!("    OpenJTalk: {:?}", r1.map(|_| ()));
                     println!("  JPreprocess: {:?}", r2.map(|_| ()));
+
+                    let error_entry = ErrorEntry {
+                        index: sentence_i,
+                        original: sentence.to_string(),
+                        openjtalk_error: ojt_err,
+                        jpreprocess_error: jp_err,
+                    };
+                    entries.push(match kind {
+                        "Both" => Entry::BothError(error_entry),
+                        "OpenJTalk" => Entry::OjtError(error_entry),
+                        "JPreprocess (panicked)" => Entry::JpPanic(error_entry),
+                        _ => Entry::JpError(error_entry),
+                    });
                     continue;
                 }
             };
@@ -117,6 +268,14 @@ fn main() -> anyhow::Result<()> {
                 .collect::<Vec<_>>();
             if ojt_phonemes == jp_phonemes {
                 matches += 1;
+                let phonemes = phonemes_with_diff(&ojt_phonemes, &jp_phonemes);
+                let phonemes_jp = phonemes_with_diff(&jp_phonemes, &ojt_phonemes);
+                entries.push(Entry::Match(MatchEntry {
+                    index: sentence_i,
+                    original: sentence.to_string(),
+                    openjtalk: phonemes,
+                    jpreprocess: phonemes_jp,
+                }));
             } else {
                 let differences = if ojt_phonemes.len() == jp_phonemes.len() {
                     let differences = ojt_phonemes
@@ -194,15 +353,33 @@ fn main() -> anyhow::Result<()> {
                         jp_buffer.push(' ');
                     }
 
-                    if differences.iter().any(|d| d == &Some(Difference::Fatal)) {
+                    let is_fatal =
+                        differences.iter().any(|d| d == &Some(Difference::Fatal));
+                    if is_fatal {
                         println!("{}\x1b[31mFatal mismatch:\x1b[0m", prefix,);
+                        fatal_mismatches += 1;
                     } else {
                         println!("{}\x1b[33mLight mismatch:\x1b[0m", prefix,);
+                        light_mismatches += 1;
                     }
                     println!("     Original: {}", sentence);
-                    light_mismatches += 1;
                     println!("    OpenJTalk: {}", ojt_buffer.trim());
                     println!("  JPreprocess: {}", jp_buffer.trim());
+
+                    let phonemes_ojt = phonemes_with_diff(&ojt_phonemes, &jp_phonemes);
+                    let phonemes_jp = phonemes_with_diff(&jp_phonemes, &ojt_phonemes);
+                    let entry = MismatchEntry {
+                        index: sentence_i,
+                        original: sentence.to_string(),
+                        openjtalk: phonemes_ojt,
+                        jpreprocess: phonemes_jp,
+                        length_mismatch: None,
+                    };
+                    entries.push(if is_fatal {
+                        Entry::Fatal(entry)
+                    } else {
+                        Entry::Light(entry)
+                    });
                 } else {
                     println!(
                         "{}\x1b[31mFatal mismatch: (length mismatch: OpenJTalk: {}, JPreprocess: {})\x1b[0m",
@@ -299,18 +476,42 @@ fn main() -> anyhow::Result<()> {
                     fatal_mismatches += 1;
                     println!("    OpenJTalk: {}", ojt_buffer);
                     println!("  JPreprocess: {}", jp_buffer);
+
+                    let phonemes_ojt = phonemes_with_diff(&ojt_phonemes, &jp_phonemes);
+                    let phonemes_jp = phonemes_with_diff(&jp_phonemes, &ojt_phonemes);
+                    entries.push(Entry::Fatal(MismatchEntry {
+                        index: sentence_i,
+                        original: sentence.to_string(),
+                        openjtalk: phonemes_ojt,
+                        jpreprocess: phonemes_jp,
+                        length_mismatch: Some(true),
+                    }));
                 }
             }
         }
 
-        file_stats.push(format!(
+        file_stats_display.push(format!(
             "{}: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m",
             file.file_name().unwrap().to_string_lossy(),
             matches,
             light_mismatches,
             fatal_mismatches,
-            jp_errors,  ojt_errors
+            jp_errors,
+            ojt_errors
         ));
+
+        all_file_results.push(FileResult {
+            file: file.file_name().unwrap().to_string_lossy().to_string(),
+            stats: Stats {
+                total: sentences_size,
+                matches,
+                light_mismatches,
+                fatal_mismatches,
+                jp_errors,
+                ojt_errors,
+            },
+            entries,
+        });
 
         total_matches += matches;
         total_light_mismatches += light_mismatches;
@@ -319,7 +520,7 @@ fn main() -> anyhow::Result<()> {
         total_ojt_errors += ojt_errors;
     }
 
-    for file_stat in file_stats {
+    for file_stat in file_stats_display {
         println!("{}", file_stat);
     }
 
@@ -328,6 +529,26 @@ fn main() -> anyhow::Result<()> {
         "Total: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m",
         total_matches, total_light_mismatches, total_fatal_mismatches, total_jp_errors, total_ojt_errors
     );
+
+    if let Some(path) = json_path {
+        let total_sentences: usize = all_file_results.iter().map(|f| f.stats.total).sum();
+        let results = Results {
+            generated_at: chrono::Local::now().to_rfc3339(),
+            commit: std::env::var("GITHUB_SHA").unwrap_or_else(|_| "local".to_string()),
+            totals: Stats {
+                total: total_sentences,
+                matches: total_matches,
+                light_mismatches: total_light_mismatches,
+                fatal_mismatches: total_fatal_mismatches,
+                jp_errors: total_jp_errors,
+                ojt_errors: total_ojt_errors,
+            },
+            files: all_file_results,
+        };
+        let json = serde_json::to_string(&results)?;
+        std::fs::write(&path, json)?;
+        eprintln!("JSON written to {}", path);
+    }
 
     Ok(())
 }

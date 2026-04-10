@@ -2,3 +2,7 @@
 /data/open_jtalk_dic_utf_8-1.11
 
 *.log
+
+/frontend/node_modules
+/frontend/dist
+/frontend/public/results.json

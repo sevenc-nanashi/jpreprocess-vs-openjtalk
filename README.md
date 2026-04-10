@@ -1,6 +1,9 @@
 # openjtalk-vs-jpreprocess
 
-比較用。
+比較用。最新の比較結果は GitHub Pages で公開されています：
+https://sevenc-nanashi.github.io/jpreprocess-vs-openjtalk/
+
+> **初回セットアップ**: リポジトリの Settings → Pages → Build and deployment の Source を「GitHub Actions」に変更してください。
 
 ## 比較対象
 
@@ -24,4 +27,16 @@ cargo run ./data/wagahaiwa_nekodearu.txt ./data/kokoro.txt | tee ./output.ansi.l
 手っ取り早く全部のファイルを比較する場合は、以下のようにする。
 ```
 cargo run ./data/*.txt | tee ./output.ansi.log | ctee ./output.log
+```
+
+JSON を出力する場合は `--json <path>` を追加する。
+```
+cargo run --release -- --json frontend/public/results.json ./data/*.txt
+```
+
+## フロントエンドのローカル起動
+
+```
+cargo run --release -- --json frontend/public/results.json ./data/*.txt
+cd frontend && vp install && vp dev
 ```
