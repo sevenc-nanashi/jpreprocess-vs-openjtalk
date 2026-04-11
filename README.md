@@ -14,6 +14,7 @@
 - `dhmo_ansaikuropedia.txt`：[DHMO - アンサイクロペディア](https://ansaikuropedia.org/wiki/DHMO)。
 - `dnc_ansaikuropedia.txt`：[大学入試センター試験 - アンサイクロペディア](https://ansaikuropedia.org/wiki/%E5%A4%A7%E5%AD%A6%E5%85%A5%E8%A9%A6%E3%82%BB%E3%83%B3%E3%82%BF%E3%83%BC%E8%A9%A6%E9%A8%93)。
 - `extreme_apologize_ansaikuropedia.txt`：[エクストリーム・謝罪 - アンサイクロペディア](https://ansaikuropedia.org/wiki/%E3%82%A8%E3%82%AF%E3%82%B9%E3%83%88%E3%83%AA%E3%83%BC%E3%83%A0%E3%83%BB%E8%AC%9D%E7%BD%AA)。
+- `rohan4600_transcript_utf8.txt`：[ROHAN](https://github.com/mmorise/rohan4600) コーパス。
 - `kokoro.txt`：こころ（夏目漱石）。
 - `wagahaiwa_nekodearu.txt`：吾輩は猫である（夏目漱石）。
 
