@@ -10,6 +10,17 @@ function pct(n: number): string {
   if (!props.stats.total) return "0%";
   return (n / props.stats.total) * 100 + "%";
 }
+
+function formatInteger(n: number): string {
+  return Math.round(n).toLocaleString("ja-JP");
+}
+
+function formatDurationMs(n: number): string {
+  return n.toLocaleString("ja-JP", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  });
+}
 </script>
 
 <template>
@@ -47,7 +58,13 @@ function pct(n: number): string {
         :title="`エラー: ${stats.jpErrors + stats.ojtErrors}`"
       />
     </div>
-    <div class="summary-total">計 {{ stats.total }} 文</div>
+    <div class="summary-total">
+      計 {{ formatInteger(stats.total) }} 文 / {{ formatInteger(stats.characters) }} 文字
+    </div>
+    <div class="summary-throughput">
+      {{ formatInteger(stats.throughputCharsPerSecond) }} chars/s /
+      {{ formatDurationMs(stats.extractionDurationMs) }} ms
+    </div>
   </div>
 </template>
 
@@ -89,6 +106,11 @@ function pct(n: number): string {
 .progress-fatal { background: var(--color-fatal); }
 .progress-error { background: var(--color-error); }
 .summary-total {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+.summary-throughput {
   font-size: 12px;
   color: var(--color-text-muted);
   text-align: right;

@@ -7,11 +7,14 @@ export type Phoneme = {
 
 export type Stats = {
   total: number;
+  characters: number;
   matches: number;
   lightMismatches: number;
   fatalMismatches: number;
   jpErrors: number;
   ojtErrors: number;
+  extractionDurationMs: number;
+  throughputCharsPerSecond: number;
 };
 
 export type MatchEntry = {

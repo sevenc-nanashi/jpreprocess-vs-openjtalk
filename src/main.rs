@@ -2,6 +2,7 @@ use open_jtalk::{text2mecab, JpCommon, ManagedResource, Mecab, Njd};
 use serde::Serialize;
 use std::panic;
 use std::str::FromStr;
+use std::time::Instant;
 
 static DICT_DIR: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -38,11 +39,14 @@ struct Results {
 #[serde(rename_all = "camelCase")]
 struct Stats {
     total: usize,
+    characters: usize,
     matches: usize,
     light_mismatches: usize,
     fatal_mismatches: usize,
     jp_errors: usize,
     ojt_errors: usize,
+    extraction_duration_ms: f64,
+    throughput_chars_per_second: f64,
 }
 
 #[derive(Serialize)]
@@ -141,6 +145,14 @@ fn phonemes_with_diff(primary: &[String], other: &[String]) -> Vec<Phoneme> {
         .collect()
 }
 
+fn throughput_chars_per_second(characters: usize, extraction_duration_ms: f64) -> f64 {
+    if extraction_duration_ms == 0.0 {
+        0.0
+    } else {
+        characters as f64 / (extraction_duration_ms / 1000.0)
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     {
         let mut resources = OJT_RESOURCES.lock().unwrap();
@@ -167,6 +179,8 @@ fn main() -> anyhow::Result<()> {
     let mut total_fatal_mismatches = 0usize;
     let mut total_jp_errors = 0usize;
     let mut total_ojt_errors = 0usize;
+    let mut total_characters = 0usize;
+    let mut total_extraction_duration_ms = 0.0f64;
 
     let mut file_stats_display = vec![];
     let mut all_file_results: Vec<FileResult> = vec![];
@@ -188,6 +202,8 @@ fn main() -> anyhow::Result<()> {
             .collect::<Vec<_>>();
 
         let sentences_size = sentences.len();
+        let characters = sentences.iter().map(|s| s.chars().count()).sum::<usize>();
+        let mut extraction_duration_ms = 0.0f64;
         let mut matches = 0usize;
         let mut light_mismatches = 0usize;
         let mut fatal_mismatches = 0usize;
@@ -202,6 +218,7 @@ fn main() -> anyhow::Result<()> {
                 sentence_i + 1,
                 sentences_size
             );
+            let extraction_started = Instant::now();
             let ojt_labels = extract_fullcontext(sentence);
             let jp_labels = panic::catch_unwind(panic::AssertUnwindSafe(|| {
                 jp.extract_fullcontext(sentence)
@@ -209,6 +226,7 @@ fn main() -> anyhow::Result<()> {
             }))
             .map_err(|e| anyhow::anyhow!("panicked! {:?}", e.downcast_ref::<String>()))
             .and_then(|r| r);
+            extraction_duration_ms += extraction_started.elapsed().as_secs_f64() * 1000.0;
 
             let (ojt_labels, jp_labels) = match (ojt_labels, jp_labels) {
                 (Ok(ojt_labels), Ok(jp_labels)) => (ojt_labels, jp_labels),
@@ -353,8 +371,7 @@ fn main() -> anyhow::Result<()> {
                         jp_buffer.push(' ');
                     }
 
-                    let is_fatal =
-                        differences.iter().any(|d| d == &Some(Difference::Fatal));
+                    let is_fatal = differences.iter().any(|d| d == &Some(Difference::Fatal));
                     if is_fatal {
                         println!("{}\x1b[31mFatal mismatch:\x1b[0m", prefix,);
                         fatal_mismatches += 1;
@@ -490,25 +507,33 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
+        let throughput_chars_per_second =
+            throughput_chars_per_second(characters, extraction_duration_ms);
         file_stats_display.push(format!(
-            "{}: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m",
+            "{}: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m, {:.0} chars/s ({} chars, {:.2} ms)",
             file.file_name().unwrap().to_string_lossy(),
             matches,
             light_mismatches,
             fatal_mismatches,
             jp_errors,
-            ojt_errors
+            ojt_errors,
+            throughput_chars_per_second,
+            characters,
+            extraction_duration_ms
         ));
 
         all_file_results.push(FileResult {
             file: file.file_name().unwrap().to_string_lossy().to_string(),
             stats: Stats {
                 total: sentences_size,
+                characters,
                 matches,
                 light_mismatches,
                 fatal_mismatches,
                 jp_errors,
                 ojt_errors,
+                extraction_duration_ms,
+                throughput_chars_per_second,
             },
             entries,
         });
@@ -518,6 +543,8 @@ fn main() -> anyhow::Result<()> {
         total_fatal_mismatches += fatal_mismatches;
         total_jp_errors += jp_errors;
         total_ojt_errors += ojt_errors;
+        total_characters += characters;
+        total_extraction_duration_ms += extraction_duration_ms;
     }
 
     for file_stat in file_stats_display {
@@ -525,9 +552,18 @@ fn main() -> anyhow::Result<()> {
     }
 
     println!();
+    let total_throughput_chars_per_second =
+        throughput_chars_per_second(total_characters, total_extraction_duration_ms);
     println!(
-        "Total: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m",
-        total_matches, total_light_mismatches, total_fatal_mismatches, total_jp_errors, total_ojt_errors
+        "Total: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m, {:.0} chars/s ({} chars, {:.2} ms)",
+        total_matches,
+        total_light_mismatches,
+        total_fatal_mismatches,
+        total_jp_errors,
+        total_ojt_errors,
+        total_throughput_chars_per_second,
+        total_characters,
+        total_extraction_duration_ms
     );
 
     if let Some(path) = json_path {
@@ -537,11 +573,14 @@ fn main() -> anyhow::Result<()> {
             commit: std::env::var("GITHUB_SHA").unwrap_or_else(|_| "local".to_string()),
             totals: Stats {
                 total: total_sentences,
+                characters: total_characters,
                 matches: total_matches,
                 light_mismatches: total_light_mismatches,
                 fatal_mismatches: total_fatal_mismatches,
                 jp_errors: total_jp_errors,
                 ojt_errors: total_ojt_errors,
+                extraction_duration_ms: total_extraction_duration_ms,
+                throughput_chars_per_second: total_throughput_chars_per_second,
             },
             files: all_file_results,
         };
