@@ -13,8 +13,10 @@ export type Stats = {
   fatalMismatches: number;
   jpErrors: number;
   ojtErrors: number;
-  extractionDurationMs: number;
-  throughputCharsPerSecond: number;
+  openjtalkExtractionDurationMs: number;
+  openjtalkThroughputCharsPerSecond: number;
+  jpreprocessExtractionDurationMs: number;
+  jpreprocessThroughputCharsPerSecond: number;
 };
 
 export type MatchEntry = {

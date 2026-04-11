@@ -62,8 +62,12 @@ function formatDurationMs(n: number): string {
       計 {{ formatInteger(stats.total) }} 文 / {{ formatInteger(stats.characters) }} 文字
     </div>
     <div class="summary-throughput">
-      {{ formatInteger(stats.throughputCharsPerSecond) }} chars/s /
-      {{ formatDurationMs(stats.extractionDurationMs) }} ms
+      OpenJTalk: {{ formatInteger(stats.openjtalkThroughputCharsPerSecond) }} chars/s /
+      {{ formatDurationMs(stats.openjtalkExtractionDurationMs) }} ms
+    </div>
+    <div class="summary-throughput">
+      JPreprocess: {{ formatInteger(stats.jpreprocessThroughputCharsPerSecond) }} chars/s /
+      {{ formatDurationMs(stats.jpreprocessExtractionDurationMs) }} ms
     </div>
   </div>
 </template>

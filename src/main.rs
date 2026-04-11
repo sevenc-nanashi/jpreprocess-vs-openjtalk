@@ -45,8 +45,10 @@ struct Stats {
     fatal_mismatches: usize,
     jp_errors: usize,
     ojt_errors: usize,
-    extraction_duration_ms: f64,
-    throughput_chars_per_second: f64,
+    openjtalk_extraction_duration_ms: f64,
+    openjtalk_throughput_chars_per_second: f64,
+    jpreprocess_extraction_duration_ms: f64,
+    jpreprocess_throughput_chars_per_second: f64,
 }
 
 #[derive(Serialize)]
@@ -180,7 +182,8 @@ fn main() -> anyhow::Result<()> {
     let mut total_jp_errors = 0usize;
     let mut total_ojt_errors = 0usize;
     let mut total_characters = 0usize;
-    let mut total_extraction_duration_ms = 0.0f64;
+    let mut total_openjtalk_extraction_duration_ms = 0.0f64;
+    let mut total_jpreprocess_extraction_duration_ms = 0.0f64;
 
     let mut file_stats_display = vec![];
     let mut all_file_results: Vec<FileResult> = vec![];
@@ -203,7 +206,8 @@ fn main() -> anyhow::Result<()> {
 
         let sentences_size = sentences.len();
         let characters = sentences.iter().map(|s| s.chars().count()).sum::<usize>();
-        let mut extraction_duration_ms = 0.0f64;
+        let mut openjtalk_extraction_duration_ms = 0.0f64;
+        let mut jpreprocess_extraction_duration_ms = 0.0f64;
         let mut matches = 0usize;
         let mut light_mismatches = 0usize;
         let mut fatal_mismatches = 0usize;
@@ -218,15 +222,20 @@ fn main() -> anyhow::Result<()> {
                 sentence_i + 1,
                 sentences_size
             );
-            let extraction_started = Instant::now();
+            let openjtalk_extraction_started = Instant::now();
             let ojt_labels = extract_fullcontext(sentence);
+            openjtalk_extraction_duration_ms +=
+                openjtalk_extraction_started.elapsed().as_secs_f64() * 1000.0;
+
+            let jpreprocess_extraction_started = Instant::now();
             let jp_labels = panic::catch_unwind(panic::AssertUnwindSafe(|| {
                 jp.extract_fullcontext(sentence)
                     .map_err(anyhow::Error::from)
             }))
             .map_err(|e| anyhow::anyhow!("panicked! {:?}", e.downcast_ref::<String>()))
             .and_then(|r| r);
-            extraction_duration_ms += extraction_started.elapsed().as_secs_f64() * 1000.0;
+            jpreprocess_extraction_duration_ms +=
+                jpreprocess_extraction_started.elapsed().as_secs_f64() * 1000.0;
 
             let (ojt_labels, jp_labels) = match (ojt_labels, jp_labels) {
                 (Ok(ojt_labels), Ok(jp_labels)) => (ojt_labels, jp_labels),
@@ -507,19 +516,23 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        let throughput_chars_per_second =
-            throughput_chars_per_second(characters, extraction_duration_ms);
+        let openjtalk_throughput_chars_per_second =
+            throughput_chars_per_second(characters, openjtalk_extraction_duration_ms);
+        let jpreprocess_throughput_chars_per_second =
+            throughput_chars_per_second(characters, jpreprocess_extraction_duration_ms);
         file_stats_display.push(format!(
-            "{}: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m, {:.0} chars/s ({} chars, {:.2} ms)",
+            "{}: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m, OpenJTalk: {:.0} chars/s ({:.2} ms), JPreprocess: {:.0} chars/s ({:.2} ms), {} chars",
             file.file_name().unwrap().to_string_lossy(),
             matches,
             light_mismatches,
             fatal_mismatches,
             jp_errors,
             ojt_errors,
-            throughput_chars_per_second,
-            characters,
-            extraction_duration_ms
+            openjtalk_throughput_chars_per_second,
+            openjtalk_extraction_duration_ms,
+            jpreprocess_throughput_chars_per_second,
+            jpreprocess_extraction_duration_ms,
+            characters
         ));
 
         all_file_results.push(FileResult {
@@ -532,8 +545,10 @@ fn main() -> anyhow::Result<()> {
                 fatal_mismatches,
                 jp_errors,
                 ojt_errors,
-                extraction_duration_ms,
-                throughput_chars_per_second,
+                openjtalk_extraction_duration_ms,
+                openjtalk_throughput_chars_per_second,
+                jpreprocess_extraction_duration_ms,
+                jpreprocess_throughput_chars_per_second,
             },
             entries,
         });
@@ -544,7 +559,8 @@ fn main() -> anyhow::Result<()> {
         total_jp_errors += jp_errors;
         total_ojt_errors += ojt_errors;
         total_characters += characters;
-        total_extraction_duration_ms += extraction_duration_ms;
+        total_openjtalk_extraction_duration_ms += openjtalk_extraction_duration_ms;
+        total_jpreprocess_extraction_duration_ms += jpreprocess_extraction_duration_ms;
     }
 
     for file_stat in file_stats_display {
@@ -552,18 +568,22 @@ fn main() -> anyhow::Result<()> {
     }
 
     println!();
-    let total_throughput_chars_per_second =
-        throughput_chars_per_second(total_characters, total_extraction_duration_ms);
+    let total_openjtalk_throughput_chars_per_second =
+        throughput_chars_per_second(total_characters, total_openjtalk_extraction_duration_ms);
+    let total_jpreprocess_throughput_chars_per_second =
+        throughput_chars_per_second(total_characters, total_jpreprocess_extraction_duration_ms);
     println!(
-        "Total: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m, {:.0} chars/s ({} chars, {:.2} ms)",
+        "Total: \x1b[32m{} matches\x1b[0m, \x1b[33m{} light mismatches\x1b[0m, \x1b[31m{} fatal mismatches\x1b[0m, \x1b[35m{} jpreprocess errors\x1b[0m, \x1b[35m{} open_jtalk errors\x1b[0m, OpenJTalk: {:.0} chars/s ({:.2} ms), JPreprocess: {:.0} chars/s ({:.2} ms), {} chars",
         total_matches,
         total_light_mismatches,
         total_fatal_mismatches,
         total_jp_errors,
         total_ojt_errors,
-        total_throughput_chars_per_second,
-        total_characters,
-        total_extraction_duration_ms
+        total_openjtalk_throughput_chars_per_second,
+        total_openjtalk_extraction_duration_ms,
+        total_jpreprocess_throughput_chars_per_second,
+        total_jpreprocess_extraction_duration_ms,
+        total_characters
     );
 
     if let Some(path) = json_path {
@@ -579,8 +599,11 @@ fn main() -> anyhow::Result<()> {
                 fatal_mismatches: total_fatal_mismatches,
                 jp_errors: total_jp_errors,
                 ojt_errors: total_ojt_errors,
-                extraction_duration_ms: total_extraction_duration_ms,
-                throughput_chars_per_second: total_throughput_chars_per_second,
+                openjtalk_extraction_duration_ms: total_openjtalk_extraction_duration_ms,
+                openjtalk_throughput_chars_per_second: total_openjtalk_throughput_chars_per_second,
+                jpreprocess_extraction_duration_ms: total_jpreprocess_extraction_duration_ms,
+                jpreprocess_throughput_chars_per_second:
+                    total_jpreprocess_throughput_chars_per_second,
             },
             files: all_file_results,
         };
