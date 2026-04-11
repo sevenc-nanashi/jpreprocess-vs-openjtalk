@@ -18,12 +18,6 @@ static OJT_RESOURCES: std::sync::LazyLock<std::sync::Mutex<Resources>> =
         })
     });
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum Difference {
-    Light,
-    Fatal,
-}
-
 // ---- JSON output types ----
 
 #[derive(Serialize)]
@@ -123,28 +117,97 @@ enum DiffKind {
     Fatal,
 }
 
-// Compute per-phoneme diffs between two phoneme sequences.
-// For positions beyond the shorter list, the extra phonemes are Fatal.
+// Compute per-phoneme diffs between two phoneme sequences using LCS-based diffing.
+// Equal phonemes get DiffKind::None, case-insensitive matches get DiffKind::Light,
+// and all other differences (including insertions/deletions) get DiffKind::Fatal.
 fn phonemes_with_diff(primary: &[String], other: &[String]) -> Vec<Phoneme> {
-    primary
-        .iter()
-        .enumerate()
-        .map(|(i, p)| {
-            let diff = if i >= other.len() {
-                DiffKind::Fatal
-            } else if p == &other[i] {
-                DiffKind::None
-            } else if p.eq_ignore_ascii_case(&other[i]) {
-                DiffKind::Light
-            } else {
-                DiffKind::Fatal
-            };
-            Phoneme {
-                value: p.clone(),
-                diff,
+    use similar::{capture_diff_slices, Algorithm, DiffOp};
+
+    let ops = capture_diff_slices(Algorithm::Myers, primary, other);
+    let mut result = Vec::new();
+
+    for op in ops {
+        match op {
+            DiffOp::Equal { old_index, len, .. } => {
+                for p in &primary[old_index..old_index + len] {
+                    result.push(Phoneme {
+                        value: p.clone(),
+                        diff: DiffKind::None,
+                    });
+                }
             }
-        })
-        .collect()
+            DiffOp::Delete {
+                old_index, old_len, ..
+            } => {
+                for p in &primary[old_index..old_index + old_len] {
+                    result.push(Phoneme {
+                        value: p.clone(),
+                        diff: DiffKind::Fatal,
+                    });
+                }
+            }
+            DiffOp::Insert { .. } => {
+                // Other has extra phonemes not in primary; nothing to annotate here.
+            }
+            DiffOp::Replace {
+                old_index,
+                old_len,
+                new_index,
+                new_len,
+            } => {
+                let old_slice = &primary[old_index..old_index + old_len];
+                let new_slice = &other[new_index..new_index + new_len];
+                // Run a nested LCS on lowercased phonemes to identify case-insensitive
+                // (Light) matches within the replaced block.
+                let old_lower: Vec<String> = old_slice.iter().map(|s| s.to_lowercase()).collect();
+                let new_lower: Vec<String> = new_slice.iter().map(|s| s.to_lowercase()).collect();
+                for inner_op in capture_diff_slices(Algorithm::Myers, &old_lower, &new_lower) {
+                    match inner_op {
+                        DiffOp::Equal {
+                            old_index: oi, len, ..
+                        } => {
+                            // Case-insensitive match within the replaced block.
+                            for p in &old_slice[oi..oi + len] {
+                                result.push(Phoneme {
+                                    value: p.clone(),
+                                    diff: DiffKind::Light,
+                                });
+                            }
+                        }
+                        DiffOp::Delete {
+                            old_index: oi,
+                            old_len: ol,
+                            ..
+                        } => {
+                            for p in &old_slice[oi..oi + ol] {
+                                result.push(Phoneme {
+                                    value: p.clone(),
+                                    diff: DiffKind::Fatal,
+                                });
+                            }
+                        }
+                        DiffOp::Insert { .. } => {
+                            // Extra phonemes in other not in primary; skip.
+                        }
+                        DiffOp::Replace {
+                            old_index: oi,
+                            old_len: ol,
+                            ..
+                        } => {
+                            for p in &old_slice[oi..oi + ol] {
+                                result.push(Phoneme {
+                                    value: p.clone(),
+                                    diff: DiffKind::Fatal,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    result
 }
 
 fn throughput_chars_per_second(characters: usize, extraction_duration_ms: f64) -> f64 {
@@ -304,215 +367,60 @@ fn main() -> anyhow::Result<()> {
                     jpreprocess: phonemes_jp,
                 }));
             } else {
-                let differences = if ojt_phonemes.len() == jp_phonemes.len() {
-                    let differences = ojt_phonemes
-                        .iter()
-                        .zip(jp_phonemes.iter())
-                        .map(|(o, j)| {
-                            if o == j {
-                                None
-                            } else if o.eq_ignore_ascii_case(j) {
-                                Some(Difference::Light)
-                            } else {
-                                Some(Difference::Fatal)
-                            }
-                        })
-                        .collect::<Vec<_>>();
+                let phonemes_ojt = phonemes_with_diff(&ojt_phonemes, &jp_phonemes);
+                let phonemes_jp = phonemes_with_diff(&jp_phonemes, &ojt_phonemes);
 
-                    if differences.is_empty() {
-                        None
+                let is_fatal = phonemes_ojt
+                    .iter()
+                    .chain(phonemes_jp.iter())
+                    .any(|p| matches!(p.diff, DiffKind::Fatal));
+                let length_mismatch = ojt_phonemes.len() != jp_phonemes.len();
+
+                if is_fatal {
+                    if length_mismatch {
+                        println!(
+                            "{}\x1b[31mFatal mismatch: (length mismatch: OpenJTalk: {}, JPreprocess: {})\x1b[0m",
+                            prefix,
+                            ojt_phonemes.len(),
+                            jp_phonemes.len()
+                        );
                     } else {
-                        Some(differences)
+                        println!("{}\x1b[31mFatal mismatch:\x1b[0m", prefix);
                     }
-                } else {
-                    None
-                };
-                if let Some(differences) = differences {
-                    let mut ojt_buffer = String::new();
-                    let mut jp_buffer = String::new();
-
-                    for (ojt_phoneme, jp_phonemes, difference) in itertools::izip!(
-                        ojt_phonemes.iter(),
-                        jp_phonemes.iter(),
-                        differences.iter()
-                    ) {
-                        let length = ojt_phoneme.len().max(jp_phonemes.len());
-                        match difference {
-                            None => {
-                                ojt_buffer.push_str(&format!(
-                                    "{:>width$}",
-                                    ojt_phoneme,
-                                    width = length
-                                ));
-                                jp_buffer.push_str(&format!(
-                                    "{:>width$}",
-                                    jp_phonemes,
-                                    width = length
-                                ));
-                            }
-                            Some(Difference::Light) => {
-                                ojt_buffer.push_str(&format!(
-                                    "\x1b[33m{:>width$}\x1b[0m",
-                                    ojt_phoneme,
-                                    width = length
-                                ));
-                                jp_buffer.push_str(&format!(
-                                    "\x1b[33m{:>width$}\x1b[0m",
-                                    jp_phonemes,
-                                    width = length
-                                ));
-                            }
-                            Some(Difference::Fatal) => {
-                                ojt_buffer.push_str(&format!(
-                                    "\x1b[31m{:>width$}\x1b[0m",
-                                    ojt_phoneme,
-                                    width = length
-                                ));
-                                jp_buffer.push_str(&format!(
-                                    "\x1b[31m{:>width$}\x1b[0m",
-                                    jp_phonemes,
-                                    width = length
-                                ));
-                            }
-                        }
-
-                        ojt_buffer.push(' ');
-                        jp_buffer.push(' ');
-                    }
-
-                    let is_fatal = differences.iter().any(|d| d == &Some(Difference::Fatal));
-                    if is_fatal {
-                        println!("{}\x1b[31mFatal mismatch:\x1b[0m", prefix,);
-                        fatal_mismatches += 1;
-                    } else {
-                        println!("{}\x1b[33mLight mismatch:\x1b[0m", prefix,);
-                        light_mismatches += 1;
-                    }
-                    println!("     Original: {}", sentence);
-                    println!("    OpenJTalk: {}", ojt_buffer.trim());
-                    println!("  JPreprocess: {}", jp_buffer.trim());
-
-                    let phonemes_ojt = phonemes_with_diff(&ojt_phonemes, &jp_phonemes);
-                    let phonemes_jp = phonemes_with_diff(&jp_phonemes, &ojt_phonemes);
-                    let entry = MismatchEntry {
-                        index: sentence_i,
-                        original: sentence.to_string(),
-                        openjtalk: phonemes_ojt,
-                        jpreprocess: phonemes_jp,
-                        length_mismatch: None,
-                    };
-                    entries.push(if is_fatal {
-                        Entry::Fatal(entry)
-                    } else {
-                        Entry::Light(entry)
-                    });
-                } else {
-                    println!(
-                        "{}\x1b[31mFatal mismatch: (length mismatch: OpenJTalk: {}, JPreprocess: {})\x1b[0m",
-                        prefix,
-                        ojt_phonemes.len(),
-                        jp_phonemes.len()
-                    );
-
-                    let mut ojt_light_mismatch_left = ojt_phonemes.len();
-                    let mut jp_light_mismatch_left = jp_phonemes.len();
-                    let mut ojt_fatal_mismatch_left = ojt_phonemes.len();
-                    let mut jp_fatal_mismatch_left = jp_phonemes.len();
-                    for (i, (ojt_phoneme, jp_phoneme)) in
-                        itertools::izip!(ojt_phonemes.iter(), jp_phonemes.iter()).enumerate()
-                    {
-                        if ojt_phoneme != jp_phoneme {
-                            ojt_light_mismatch_left = i;
-                            jp_light_mismatch_left = i;
-                        }
-                        if !ojt_phoneme.eq_ignore_ascii_case(jp_phoneme) {
-                            ojt_fatal_mismatch_left = i;
-                            jp_fatal_mismatch_left = i;
-                            break;
-                        }
-                    }
-                    let mut ojt_light_mismatch_right = ojt_phonemes.len();
-                    let mut jp_light_mismatch_right = jp_phonemes.len();
-                    let mut ojt_fatal_mismatch_right = ojt_phonemes.len();
-                    let mut jp_fatal_mismatch_right = jp_phonemes.len();
-                    for (i, (ojt_phoneme, jp_phoneme)) in
-                        itertools::izip!(ojt_phonemes.iter().rev(), jp_phonemes.iter().rev())
-                            .enumerate()
-                    {
-                        if ojt_phoneme != jp_phoneme {
-                            ojt_light_mismatch_right = ojt_phonemes.len() - i;
-                            jp_light_mismatch_right = jp_phonemes.len() - i;
-                        }
-                        if !ojt_phoneme.eq_ignore_ascii_case(jp_phoneme) {
-                            ojt_fatal_mismatch_right = ojt_phonemes.len() - i;
-                            jp_fatal_mismatch_right = jp_phonemes.len() - i;
-                            break;
-                        }
-                    }
-
-                    let mut ojt_buffer = String::new();
-                    let mut jp_buffer = String::new();
-
-                    for (i, ojt_phoneme) in ojt_phonemes.iter().enumerate() {
-                        let length = ojt_phoneme.len();
-                        if i == ojt_light_mismatch_left {
-                            ojt_buffer.push_str("\x1b[33m");
-                        }
-                        if i == ojt_fatal_mismatch_left {
-                            ojt_buffer.push_str("\x1b[31m");
-                        }
-
-                        ojt_buffer.push_str(&format!("{:>width$}", ojt_phoneme, width = length));
-
-                        if i == ojt_fatal_mismatch_right {
-                            ojt_buffer.push_str("\x1b[33m");
-                        }
-                        if i == ojt_light_mismatch_right {
-                            ojt_buffer.push_str("\x1b[0m");
-                        }
-
-                        ojt_buffer.push(' ');
-                    }
-                    for (i, jp_phoneme) in jp_phonemes.iter().enumerate() {
-                        let length = jp_phoneme.len();
-                        if i == jp_light_mismatch_left {
-                            jp_buffer.push_str("\x1b[33m");
-                        }
-                        if i == jp_fatal_mismatch_left {
-                            jp_buffer.push_str("\x1b[31m");
-                        }
-
-                        jp_buffer.push_str(&format!("{:>width$}", jp_phoneme, width = length));
-
-                        if i == jp_fatal_mismatch_right {
-                            jp_buffer.push_str("\x1b[33m");
-                        }
-                        if i == jp_light_mismatch_right {
-                            jp_buffer.push_str("\x1b[0m");
-                        }
-
-                        jp_buffer.push(' ');
-                    }
-                    ojt_buffer = ojt_buffer.trim().to_string();
-                    jp_buffer = jp_buffer.trim().to_string();
-                    ojt_buffer.push_str("\x1b[0m");
-                    jp_buffer.push_str("\x1b[0m");
-
-                    println!("     Original: {}", sentence);
                     fatal_mismatches += 1;
-                    println!("    OpenJTalk: {}", ojt_buffer);
-                    println!("  JPreprocess: {}", jp_buffer);
-
-                    let phonemes_ojt = phonemes_with_diff(&ojt_phonemes, &jp_phonemes);
-                    let phonemes_jp = phonemes_with_diff(&jp_phonemes, &ojt_phonemes);
-                    entries.push(Entry::Fatal(MismatchEntry {
-                        index: sentence_i,
-                        original: sentence.to_string(),
-                        openjtalk: phonemes_ojt,
-                        jpreprocess: phonemes_jp,
-                        length_mismatch: Some(true),
-                    }));
+                } else {
+                    println!("{}\x1b[33mLight mismatch:\x1b[0m", prefix);
+                    light_mismatches += 1;
                 }
+
+                let format_phonemes = |phonemes: &[Phoneme]| -> String {
+                    phonemes
+                        .iter()
+                        .map(|p| match p.diff {
+                            DiffKind::None => p.value.clone(),
+                            DiffKind::Light => format!("\x1b[33m{}\x1b[0m", p.value),
+                            DiffKind::Fatal => format!("\x1b[31m{}\x1b[0m", p.value),
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                };
+
+                println!("     Original: {}", sentence);
+                println!("    OpenJTalk: {}", format_phonemes(&phonemes_ojt));
+                println!("  JPreprocess: {}", format_phonemes(&phonemes_jp));
+
+                let entry = MismatchEntry {
+                    index: sentence_i,
+                    original: sentence.to_string(),
+                    openjtalk: phonemes_ojt,
+                    jpreprocess: phonemes_jp,
+                    length_mismatch: if length_mismatch { Some(true) } else { None },
+                };
+                entries.push(if is_fatal {
+                    Entry::Fatal(entry)
+                } else {
+                    Entry::Light(entry)
+                });
             }
         }
 
