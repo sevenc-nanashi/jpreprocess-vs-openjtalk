@@ -7,7 +7,7 @@ fn download_open_jtalk_dict(dist: &std::path::Path) -> anyhow::Result<()> {
     let res = ureq::get(&download_url).call()?;
     anyhow::ensure!(res.status() == 200, "{}", res.status());
 
-    let bytes = res.into_reader();
+    let bytes = res.into_body().into_reader();
     let dict_tar = flate2::read::GzDecoder::new(bytes);
 
     let mut dict_archive = tar::Archive::new(dict_tar);
