@@ -42,6 +42,7 @@ jobs:
       - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: "22"
+          working-directory: "frontend"
           cache: true
 
       - name: Install frontend dependencies
