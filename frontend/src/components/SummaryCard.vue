@@ -41,22 +41,22 @@ function formatDurationMs(n: number): string {
         class="progress-match"
         :style="{ width: pct(stats.matches) }"
         :title="`一致: ${stats.matches}`"
-      />
+      ></div>
       <div
         class="progress-light"
         :style="{ width: pct(stats.lightMismatches) }"
         :title="`軽微な差異: ${stats.lightMismatches}`"
-      />
+      ></div>
       <div
         class="progress-fatal"
         :style="{ width: pct(stats.fatalMismatches) }"
         :title="`差異あり: ${stats.fatalMismatches}`"
-      />
+      ></div>
       <div
         class="progress-error"
         :style="{ width: pct(stats.jpErrors + stats.ojtErrors) }"
         :title="`エラー: ${stats.jpErrors + stats.ojtErrors}`"
-      />
+      ></div>
     </div>
     <div class="summary-total">
       計 {{ formatInteger(stats.total) }} 文 / {{ formatInteger(stats.characters) }} 文字
@@ -105,10 +105,18 @@ function formatDurationMs(n: number): string {
   background: var(--color-border);
   margin-bottom: 4px;
 }
-.progress-match { background: var(--color-match); }
-.progress-light { background: var(--color-light); }
-.progress-fatal { background: var(--color-fatal); }
-.progress-error { background: var(--color-error); }
+.progress-match {
+  background: var(--color-match);
+}
+.progress-light {
+  background: var(--color-light);
+}
+.progress-fatal {
+  background: var(--color-fatal);
+}
+.progress-error {
+  background: var(--color-error);
+}
 .summary-total {
   font-size: 12px;
   color: var(--color-text-muted);

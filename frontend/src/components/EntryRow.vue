@@ -32,8 +32,12 @@ const kindLabel: Record<string, string> = {
         {{ kindLabel[entry.kind] }}
       </span>
       <span class="entry-meta">{{ fileLabel }} #{{ entry.index + 1 }}</span>
-      <span v-if="entry.kind === 'fatal' && (entry as any).lengthMismatch" class="entry-length-mismatch">
-        (長さ不一致: OJT {{ (entry as any).openjtalk.length }} / JP {{ (entry as any).jpreprocess.length }})
+      <span
+        v-if="entry.kind === 'fatal' && (entry as any).lengthMismatch"
+        class="entry-length-mismatch"
+      >
+        (長さ不一致: OJT {{ (entry as any).openjtalk.length }} / JP
+        {{ (entry as any).jpreprocess.length }})
       </span>
     </div>
     <div class="entry-original">{{ entry.original }}</div>
@@ -70,13 +74,21 @@ const kindLabel: Record<string, string> = {
   flex-direction: column;
   gap: 6px;
 }
-.entry-match   { border-left: 3px solid var(--color-match); }
-.entry-light   { border-left: 3px solid var(--color-light); }
-.entry-fatal   { border-left: 3px solid var(--color-fatal); }
+.entry-match {
+  border-left: 3px solid var(--color-match);
+}
+.entry-light {
+  border-left: 3px solid var(--color-light);
+}
+.entry-fatal {
+  border-left: 3px solid var(--color-fatal);
+}
 .entry-jp_error,
 .entry-ojt_error,
 .entry-both_error,
-.entry-jp_panic { border-left: 3px solid var(--color-error); }
+.entry-jp_panic {
+  border-left: 3px solid var(--color-error);
+}
 
 .entry-header {
   display: flex;

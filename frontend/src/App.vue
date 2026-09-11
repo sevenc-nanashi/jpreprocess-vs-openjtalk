@@ -41,7 +41,8 @@ function formatDate(iso: string): string {
     <header class="app-header">
       <h1>jpreprocess vs OpenJTalk</h1>
       <div v-if="results" class="app-meta">
-        <span>コミット:
+        <span
+          >コミット:
           <code>{{ results.commit.slice(0, 7) }}</code>
         </span>
         <span>生成日時: {{ formatDate(results.generatedAt) }}</span>
@@ -63,12 +64,7 @@ function formatDate(iso: string): string {
       <section class="section">
         <h2 class="section-title">ファイル別</h2>
         <div class="file-grid">
-          <SummaryCard
-            v-for="f in results.files"
-            :key="f.file"
-            :label="f.file"
-            :stats="f.stats"
-          />
+          <SummaryCard v-for="f in results.files" :key="f.file" :label="f.file" :stats="f.stats" />
         </div>
       </section>
 

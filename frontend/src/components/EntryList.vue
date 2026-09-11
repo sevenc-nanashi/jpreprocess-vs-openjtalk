@@ -34,9 +34,7 @@ function shouldShow(e: Entry): boolean {
   return props.showError;
 }
 
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredEntries.value.length / PAGE_SIZE))
-);
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredEntries.value.length / PAGE_SIZE)));
 
 const pageEntries = computed(() => {
   const start = (page.value - 1) * PAGE_SIZE;
@@ -50,14 +48,19 @@ function goPage(n: number) {
 // Reset page when filters change
 watch(
   () => [props.selectedFile, props.showMatch, props.showLight, props.showFatal, props.showError],
-  () => { page.value = 1; }
+  () => {
+    page.value = 1;
+  },
 );
 </script>
 
 <template>
   <div class="entry-list">
     <div class="entry-count">
-      {{ filteredEntries.length }} 件中 {{ (page - 1) * PAGE_SIZE + 1 }}〜{{ Math.min(page * PAGE_SIZE, filteredEntries.length) }} 件を表示
+      {{ filteredEntries.length }} 件中 {{ (page - 1) * PAGE_SIZE + 1 }}〜{{
+        Math.min(page * PAGE_SIZE, filteredEntries.length)
+      }}
+      件を表示
     </div>
 
     <div class="entries">
@@ -67,9 +70,7 @@ watch(
         :entry="item.entry"
         :file-label="item.file"
       />
-      <div v-if="filteredEntries.length === 0" class="empty">
-        該当するエントリがありません
-      </div>
+      <div v-if="filteredEntries.length === 0" class="empty">該当するエントリがありません</div>
     </div>
 
     <div v-if="totalPages > 1" class="pagination">
