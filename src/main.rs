@@ -4,10 +4,7 @@ use std::panic;
 use std::str::FromStr;
 use std::time::Instant;
 
-static DICT_DIR: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/data/open_jtalk_dic_utf_8-1.11"
-);
+static DICT_DIR: &str = env!("OPENJTALK_DICT_DIR");
 
 static OJT_RESOURCES: std::sync::LazyLock<std::sync::Mutex<Resources>> =
     std::sync::LazyLock::new(|| {
@@ -252,10 +249,7 @@ fn main() -> anyhow::Result<()> {
     let mut all_file_results: Vec<FileResult> = vec![];
 
     let mut jp = jpreprocess::JPreprocess::with_dictionaries(
-        jpreprocess::SystemDictionaryConfig::Bundled(
-            jpreprocess::kind::JPreprocessDictionaryKind::NaistJdic,
-        )
-        .load()?,
+        jpreprocess::SystemDictionaryConfig::File(env!("JPREPROCESS_DICT_DIR").into()).load()?,
         None,
     );
 
@@ -312,8 +306,8 @@ fn main() -> anyhow::Result<()> {
                         jp_errors += 1;
                         // 念のためリセット
                         jp = jpreprocess::JPreprocess::with_dictionaries(
-                            jpreprocess::SystemDictionaryConfig::Bundled(
-                                jpreprocess::kind::JPreprocessDictionaryKind::NaistJdic,
+                            jpreprocess::SystemDictionaryConfig::File(
+                                env!("JPREPROCESS_DICT_DIR").into(),
                             )
                             .load()?,
                             None,

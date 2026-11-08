@@ -1,25 +1,37 @@
-const DIC_DIR_NAME: &str = "open_jtalk_dic_utf_8-1.11";
-fn download_open_jtalk_dict(dist: &std::path::Path) -> anyhow::Result<()> {
-    let download_url = format!(
-        "https://github.com/r9y9/open_jtalk/releases/download/v1.11.1/{DIC_DIR_NAME}.tar.gz"
-    );
-
-    let res = ureq::get(&download_url).call()?;
-    anyhow::ensure!(res.status() == 200, "{}", res.status());
-
-    let bytes = res.into_body().into_reader();
-    let dict_tar = flate2::read::GzDecoder::new(bytes);
-
-    let mut dict_archive = tar::Archive::new(dict_tar);
-    dict_archive.unpack(dist)?;
-    Ok(())
-}
+use std::path::PathBuf;
 
 fn main() -> anyhow::Result<()> {
-    let dist = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
-    let dict_path = dist.join(DIC_DIR_NAME);
-    if !dict_path.exists() {
-        download_open_jtalk_dict(&dist)?;
-    }
+    println!("cargo:rerun-if-changed=build.rs");
+    let dist = PathBuf::from(std::env::var("OUT_DIR")?);
+    let source = dist.join("naist-jdic-0.1.3");
+    let res =
+        ureq::get("https://github.com/jpreprocess/naist-jdic/archive/refs/tags/v0.1.3.tar.gz")
+            .call()?;
+    let dict_tar = flate2::read::GzDecoder::new(res.into_body().into_reader());
+    tar::Archive::new(dict_tar).unpack(&dist)?;
+
+    let jp_dict = dist.join("jpreprocess-dict");
+    jpreprocess_dictionary::dictionary::to_dict::JPreprocessDictionaryBuilder::default()
+        .build_dictionary(&source, &jp_dict)?;
+
+    let ojt_dict = dist.join("openjtalk-dict");
+    std::fs::create_dir_all(&ojt_dict)?;
+    open_jtalk::mecab_dict_index(&[
+        "mecab-dict-index",
+        "-d",
+        source.to_str().unwrap(),
+        "-o",
+        ojt_dict.to_str().unwrap(),
+        "-f",
+        "UTF-8",
+        "-t",
+        "UTF-8",
+    ]);
+    // mecab_dict_index does not return its exit status; verify the generated dictionary loads.
+    let mut mecab = open_jtalk::ManagedResource::<open_jtalk::Mecab>::initialize();
+    mecab.load(ojt_dict.to_str().unwrap())?;
+
+    println!("cargo:rustc-env=JPREPROCESS_DICT_DIR={}", jp_dict.display());
+    println!("cargo:rustc-env=OPENJTALK_DICT_DIR={}", ojt_dict.display());
     Ok(())
 }

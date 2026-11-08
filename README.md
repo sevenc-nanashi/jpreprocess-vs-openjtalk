@@ -20,6 +20,10 @@
 
 ## 比較方法
 
+両ライブラリの辞書は、共通の [naist-jdic v0.1.3](https://github.com/jpreprocess/naist-jdic/tree/v0.1.3) からビルド時に生成します。
+辞書ソースを一度ダウンロードし、同じ CSV・文字種定義・接続コストをそれぞれの辞書形式に変換します。
+生成先は Cargo の `OUT_DIR` です。初回ビルドにはネットワーク接続と辞書の生成時間が必要です。
+
 - ctee：<https://github.com/Lipen/ctee>
 ```
 cargo run ./data/wagahaiwa_nekodearu.txt ./data/kokoro.txt | tee ./output.ansi.log | ctee ./output.log

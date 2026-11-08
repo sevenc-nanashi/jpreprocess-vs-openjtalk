@@ -10,9 +10,7 @@ panic_safe = []
 anyhow = "1.0.104"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 jlabel = "0.1.10"
-jpreprocess = { features = [
-  "naist-jdic",
-], git = "https://github.com/jpreprocess/jpreprocess", branch = "main" }
+jpreprocess = { git = "https://github.com/jpreprocess/jpreprocess", branch = "main" }
 lazy-regex = "3.6.1"
 open_jtalk = { git = "https://github.com/voicevox/open_jtalk-rs" }
 serde = { version = "1", features = ["derive"] }
@@ -22,5 +20,7 @@ similar = "3.2.0"
 [build-dependencies]
 anyhow = "1.0.104"
 flate2 = "1.1.10"
+jpreprocess-dictionary = { git = "https://github.com/jpreprocess/jpreprocess", branch = "main" }
+open_jtalk = { git = "https://github.com/voicevox/open_jtalk-rs" }
 tar = "0.4.46"
 ureq = "3.4.1"
