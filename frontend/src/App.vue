@@ -108,6 +108,13 @@ function formatDate(iso: string): string {
         />
       </section>
     </template>
+    <footer class="app-footer">
+      <a
+        href="https://github.com/sevenc-nanashi/jpreprocess-vs-openjtalk/blob/main/data/CORPORA.md"
+      >
+        追加コーパスの出典・ライセンス
+      </a>
+    </footer>
   </div>
 </template>
 
@@ -172,5 +179,9 @@ function formatDate(iso: string): string {
 }
 .status.error {
   color: var(--color-fatal);
+}
+.app-footer {
+  margin: 32px 0;
+  font-size: 12px;
 }
 </style>

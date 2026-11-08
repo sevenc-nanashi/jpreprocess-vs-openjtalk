@@ -17,6 +17,14 @@
 - `rohan4600_transcript_utf8.txt`：[ROHAN](https://github.com/mmorise/rohan4600) コーパス。
 - `kokoro.txt`：こころ（夏目漱石）。
 - `wagahaiwa_nekodearu.txt`：吾輩は猫である（夏目漱石）。
+- `character_conversation.txt`：Character Conversation Dataset の全文。
+- `rosebleu.txt`：Rosebleu のゲーム10作品のシナリオ（元データで識別された成人向けシーンを除外）。
+- `ojousama_talk.txt`：お嬢様会話データセットの質問・応答全文。
+- `real_persona_chat.txt`：RealPersonaChat 公開版の全発話。
+- `jmrd.txt`：日本語映画推薦対話の train・valid・test の全発話。
+- `mrmp.txt`：MRMP 公開版の初対面・家族入り対話の全発話。
+
+追加6件は合計766,925発話です。[出典・ライセンス・加工内容・再取得方法](data/CORPORA.md)を参照してください。
 
 ## 比較方法
 
@@ -38,6 +46,16 @@ JSON を出力する場合は `--json <path>` を追加する。
 ```
 cargo run --release -- --json frontend/public/results.json ./data/*.txt
 ```
+
+全文をブラウザで閲覧する場合は、圧縮分割形式を使います。
+全件を比較し、500文ずつ圧縮した結果と一覧用の `results.json` を生成します。
+ブラウザはフィルタと表示ページに必要な結果だけを取得します。GitHub Pages もこの形式を使用します。
+
+```
+cargo run --release -- --json-pages frontend/public ./data/*.txt > comparison.log
+```
+
+`--json` は結果を1ファイルにまとめる形式で、全文では数 GiB になるため小規模な比較向けです。
 
 ## フロントエンドのローカル起動
 
@@ -62,7 +80,7 @@ WebAssembly で実行され、入力した文章はサーバーに送信され�
 source /path/to/emsdk/emsdk_env.sh
 rustup target add wasm32-unknown-emscripten
 bash scripts/build-wasm.sh
-cargo run --release -- --json frontend/public/results.json ./data/*.txt
+cargo run --release -- --json-pages frontend/public ./data/*.txt > comparison.log
 cd frontend && vp install && vp dev
 ```
 

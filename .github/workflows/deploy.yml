@@ -33,7 +33,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y cmake clang
 
       - name: Run comparison and emit JSON
-        run: cargo run --release -- --json frontend/public/results.json ./data/*.txt
+        run: cargo run --release -- --json-pages frontend/public ./data/*.txt > comparison.log
 
       - uses: emscripten-core/setup-emsdk@v16
         with:
@@ -55,6 +55,11 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: vp build
+
+      - name: Include corpus attribution and licenses
+        run: |
+          cp data/CORPORA.md frontend/dist/CORPORA.md
+          cp -r data/licenses frontend/dist/licenses
 
       - uses: actions/configure-pages@v5
 

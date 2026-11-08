@@ -44,6 +44,48 @@ struct FileResult {
     file: String,
     stats: Stats,
     entries: Vec<Entry>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    chunks: Vec<EntryChunk>,
+}
+
+#[derive(Serialize, Default)]
+struct EntryCounts {
+    matches: usize,
+    light: usize,
+    fatal: usize,
+    errors: usize,
+}
+
+#[derive(Serialize)]
+struct EntryChunk {
+    path: String,
+    counts: EntryCounts,
+}
+
+fn write_entry_chunk(
+    directory: &std::path::Path,
+    file_index: usize,
+    chunk_index: usize,
+    entries: &mut Vec<Entry>,
+) -> anyhow::Result<EntryChunk> {
+    // Avoid static servers treating .gz as HTTP content encoding.
+    let path = format!("result-pages/{file_index}-{chunk_index}.bin");
+    let mut counts = EntryCounts::default();
+    for entry in entries.iter() {
+        match entry {
+            Entry::Match(_) => counts.matches += 1,
+            Entry::Light(_) => counts.light += 1,
+            Entry::Fatal(_) => counts.fatal += 1,
+            _ => counts.errors += 1,
+        }
+    }
+    let file = std::fs::File::create(directory.join(&path))?;
+    let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+    let mut writer = std::io::BufWriter::new(encoder);
+    serde_json::to_writer(&mut writer, entries)?;
+    writer.into_inner()?.finish()?;
+    entries.clear();
+    Ok(EntryChunk { path, counts })
 }
 
 #[derive(Serialize)]
@@ -300,16 +342,39 @@ fn main() -> anyhow::Result<()> {
     // Parse --json <path> from args
     let raw_args: Vec<String> = std::env::args().skip(1).collect();
     let mut json_path: Option<String> = None;
+    let mut json_pages: Option<std::path::PathBuf> = None;
     let mut file_paths: Vec<std::path::PathBuf> = vec![];
     {
         let mut iter = raw_args.into_iter();
         while let Some(arg) = iter.next() {
             if arg == "--json" {
-                json_path = iter.next();
+                json_path = Some(
+                    iter.next()
+                        .ok_or_else(|| anyhow::anyhow!("--json requires a path"))?,
+                );
+            } else if arg == "--json-pages" {
+                json_pages = Some(
+                    iter.next()
+                        .ok_or_else(|| anyhow::anyhow!("--json-pages requires a directory"))?
+                        .into(),
+                );
             } else {
                 file_paths.push(std::path::PathBuf::from(arg));
             }
         }
+    }
+    anyhow::ensure!(
+        json_path.is_none() || json_pages.is_none(),
+        "Use either --json or --json-pages"
+    );
+    if let Some(directory) = &json_pages {
+        std::fs::create_dir_all(directory.join("result-pages"))?;
+        json_path = Some(
+            directory
+                .join("results.json")
+                .to_string_lossy()
+                .into_owned(),
+        );
     }
 
     let mut total_matches = 0usize;
@@ -329,7 +394,7 @@ fn main() -> anyhow::Result<()> {
         None,
     );
 
-    for file in &file_paths {
+    for (file_index, file) in file_paths.iter().enumerate() {
         let text = std::fs::read_to_string(file)?;
         let sentences = lazy_regex::regex!("[。「」]")
             .split(&text)
@@ -347,8 +412,22 @@ fn main() -> anyhow::Result<()> {
         let mut jp_errors = 0usize;
         let mut ojt_errors = 0usize;
         let mut entries: Vec<Entry> = vec![];
+        let mut chunks = vec![];
 
         for (sentence_i, sentence) in sentences.iter().enumerate() {
+            if json_path.is_none() {
+                entries.clear();
+            }
+            if let Some(directory) = &json_pages {
+                if entries.len() == 500 {
+                    chunks.push(write_entry_chunk(
+                        directory,
+                        file_index,
+                        chunks.len(),
+                        &mut entries,
+                    )?);
+                }
+            }
             let prefix = format!(
                 "[{} : {} / {}]: ",
                 file.file_name().unwrap().to_string_lossy(),
@@ -531,6 +610,16 @@ fn main() -> anyhow::Result<()> {
             characters
         ));
 
+        if let Some(directory) = &json_pages {
+            if !entries.is_empty() {
+                chunks.push(write_entry_chunk(
+                    directory,
+                    file_index,
+                    chunks.len(),
+                    &mut entries,
+                )?);
+            }
+        }
         all_file_results.push(FileResult {
             file: file.file_name().unwrap().to_string_lossy().to_string(),
             stats: Stats {
@@ -547,6 +636,7 @@ fn main() -> anyhow::Result<()> {
                 jpreprocess_throughput_chars_per_second,
             },
             entries,
+            chunks,
         });
 
         total_matches += matches;

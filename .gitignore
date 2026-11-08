@@ -6,4 +6,5 @@
 /frontend/node_modules
 /frontend/dist
 /frontend/public/results.json
+/frontend/public/result-pages
 /frontend/public/wasm

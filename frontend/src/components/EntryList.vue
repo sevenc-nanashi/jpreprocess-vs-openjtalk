@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import type { Entry, FileResult } from "../types";
+import type { Entry, EntryChunk, FileResult } from "../types";
 import EntryRow from "./EntryRow.vue";
 
 const props = defineProps<{
@@ -15,17 +15,78 @@ const props = defineProps<{
 const PAGE_SIZE = 50;
 const page = ref(1);
 
-const filteredEntries = computed<Array<{ entry: Entry; file: string }>>(() => {
-  const result: Array<{ entry: Entry; file: string }> = [];
-  for (const f of props.files) {
-    if (props.selectedFile && f.file !== props.selectedFile) continue;
-    for (const e of f.entries) {
-      if (!shouldShow(e)) continue;
-      result.push({ entry: e, file: f.file });
+type EntryBlock = { file: string; count: number } & ({ entries: Entry[] } | { chunk: EntryChunk });
+
+const blocks = computed<EntryBlock[]>(() =>
+  props.files.flatMap((file): EntryBlock[] => {
+    if (props.selectedFile && file.file !== props.selectedFile) return [];
+    if (file.chunks) {
+      return file.chunks.map((chunk) => ({
+        file: file.file,
+        chunk,
+        count:
+          (props.showMatch ? chunk.counts.matches : 0) +
+          (props.showLight ? chunk.counts.light : 0) +
+          (props.showFatal ? chunk.counts.fatal : 0) +
+          (props.showError ? chunk.counts.errors : 0),
+      }));
     }
-  }
-  return result;
-});
+    const entries = file.entries.filter(shouldShow);
+    return [{ file: file.file, entries, count: entries.length }];
+  }),
+);
+const filteredCount = computed(() => blocks.value.reduce((total, block) => total + block.count, 0));
+const pageEntries = ref<Array<{ entry: Entry; file: string }>>([]);
+const loading = ref(false);
+const error = ref<string | null>(null);
+const reload = ref(0);
+
+watch(
+  () => [blocks.value, page.value, reload.value],
+  async (_value, _previous, onCleanup) => {
+    const controller = new AbortController();
+    onCleanup(() => controller.abort());
+    pageEntries.value = [];
+    error.value = null;
+    loading.value = true;
+    try {
+      let skip = (page.value - 1) * PAGE_SIZE;
+      const visible: Array<{ entry: Entry; file: string }> = [];
+      for (const block of blocks.value) {
+        if (skip >= block.count) {
+          skip -= block.count;
+          continue;
+        }
+        let entries: Entry[];
+        if ("entries" in block) {
+          entries = block.entries;
+        } else {
+          const response = await fetch(new URL(block.chunk.path, document.baseURI), {
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          if (!response.body) throw new Error("結果の本文がありません");
+          const json = new Response(response.body.pipeThrough(new DecompressionStream("gzip")));
+          const loaded: Entry[] = await json.json();
+          entries = loaded.filter(shouldShow);
+        }
+        visible.push(
+          ...entries
+            .slice(skip, skip + PAGE_SIZE - visible.length)
+            .map((entry) => ({ entry, file: block.file })),
+        );
+        skip = 0;
+        if (visible.length === PAGE_SIZE) break;
+      }
+      if (!controller.signal.aborted) pageEntries.value = visible;
+    } catch (e) {
+      if (!controller.signal.aborted) error.value = String(e);
+    } finally {
+      if (!controller.signal.aborted) loading.value = false;
+    }
+  },
+  { immediate: true },
+);
 
 function shouldShow(e: Entry): boolean {
   if (e.kind === "match") return props.showMatch;
@@ -34,12 +95,7 @@ function shouldShow(e: Entry): boolean {
   return props.showError;
 }
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredEntries.value.length / PAGE_SIZE)));
-
-const pageEntries = computed(() => {
-  const start = (page.value - 1) * PAGE_SIZE;
-  return filteredEntries.value.slice(start, start + PAGE_SIZE);
-});
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredCount.value / PAGE_SIZE)));
 
 function goPage(n: number) {
   page.value = Math.max(1, Math.min(totalPages.value, n));
@@ -47,7 +103,14 @@ function goPage(n: number) {
 
 // Reset page when filters change
 watch(
-  () => [props.selectedFile, props.showMatch, props.showLight, props.showFatal, props.showError],
+  () => [
+    props.files,
+    props.selectedFile,
+    props.showMatch,
+    props.showLight,
+    props.showFatal,
+    props.showError,
+  ],
   () => {
     page.value = 1;
   },
@@ -57,21 +120,25 @@ watch(
 <template>
   <div class="entry-list">
     <div class="entry-count">
-      {{ filteredEntries.length }} 件中
-      {{ filteredEntries.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1 }}〜{{
-        Math.min(page * PAGE_SIZE, filteredEntries.length)
+      {{ filteredCount }} 件中 {{ filteredCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1 }}〜{{
+        Math.min(page * PAGE_SIZE, filteredCount)
       }}
       件を表示
     </div>
 
-    <div class="entries">
+    <div v-if="loading" role="status">読み込み中…</div>
+    <div v-else-if="error" role="alert">
+      結果を読み込めませんでした。{{ error }}
+      <button type="button" @click="reload++">再読み込み</button>
+    </div>
+    <div v-else class="entries">
       <EntryRow
         v-for="(item, i) in pageEntries"
         :key="i"
         :entry="item.entry"
         :file-label="item.file"
       />
-      <div v-if="filteredEntries.length === 0" class="empty">該当するエントリがありません</div>
+      <div v-if="filteredCount === 0" class="empty">該当するエントリがありません</div>
     </div>
 
     <div v-if="totalPages > 1" class="pagination">

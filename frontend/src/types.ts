@@ -60,6 +60,12 @@ export type FileResult = {
   file: string;
   stats: Stats;
   entries: Entry[];
+  chunks?: EntryChunk[];
+};
+
+export type EntryChunk = {
+  path: string;
+  counts: { matches: number; light: number; fatal: number; errors: number };
 };
 
 export type Results = {
