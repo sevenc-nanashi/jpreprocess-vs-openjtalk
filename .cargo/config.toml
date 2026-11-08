@@ -1,0 +1,8 @@
+[target.wasm32-unknown-emscripten]
+rustflags = [
+  "-C", "link-arg=-sMODULARIZE=1",
+  "-C", "link-arg=-sEXPORT_ES6=1",
+  "-C", "link-arg=-sALLOW_MEMORY_GROWTH=1",
+  "-C", "link-arg=-sEXPORTED_RUNTIME_METHODS=FS,callMain",
+  "-C", "link-arg=-sSTACK_SIZE=8388608",
+]

@@ -12,7 +12,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 jlabel = "0.1.10"
 jpreprocess = { git = "https://github.com/jpreprocess/jpreprocess", branch = "main" }
 lazy-regex = "3.6.1"
-open_jtalk = { git = "https://github.com/voicevox/open_jtalk-rs" }
+open_jtalk = { git = "https://github.com/yamachu/open_jtalk-rs", rev = "7e560e1f2ed7eaf9f085d485ae0b7c468c3134be" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 similar = "3.2.0"
@@ -21,6 +21,6 @@ similar = "3.2.0"
 anyhow = "1.0.104"
 flate2 = "1.1.10"
 jpreprocess-dictionary = { git = "https://github.com/jpreprocess/jpreprocess", branch = "main" }
-open_jtalk = { git = "https://github.com/voicevox/open_jtalk-rs" }
+open_jtalk = { git = "https://github.com/yamachu/open_jtalk-rs", rev = "7e560e1f2ed7eaf9f085d485ae0b7c468c3134be" }
 tar = "0.4.46"
 ureq = "3.4.1"

@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import type { Results } from "./types";
 import SummaryCard from "./components/SummaryCard.vue";
 import EntryList from "./components/EntryList.vue";
+import TextComparison from "./components/TextComparison.vue";
 
 const results = ref<Results | null>(null);
 const error = ref<string | null>(null);
@@ -48,6 +49,8 @@ function formatDate(iso: string): string {
         <span>生成日時: {{ formatDate(results.generatedAt) }}</span>
       </div>
     </header>
+
+    <TextComparison />
 
     <div v-if="loading" class="status">読み込み中…</div>
     <div v-else-if="error" class="status error">

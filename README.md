@@ -41,7 +41,22 @@ cargo run --release -- --json frontend/public/results.json ./data/*.txt
 
 ## フロントエンドのローカル起動
 
+ブラウザの「文章を比較」から任意の文章を比較できます。処理は Web Worker 内の
+WebAssembly で実行され、入力した文章はサーバーに送信されません。
+初回実行時に両ライブラリの辞書（非圧縮で約 179 MiB）をダウンロードします。
+辞書のライセンスは [naist-jdic-COPYING.txt](frontend/public/naist-jdic-COPYING.txt) に収録しています。
+
+ブラウザ版のビルドには Emscripten SDK 5.0.7 と Rust の
+`wasm32-unknown-emscripten` ターゲットが必要です。
+`open_jtalk-rs` は [PR #70](https://github.com/VOICEVOX/open_jtalk-rs/pull/70)
+のコミット `7e560e1` に固定しています。
+
 ```
+source /path/to/emsdk/emsdk_env.sh
+rustup target add wasm32-unknown-emscripten
+bash scripts/build-wasm.sh
 cargo run --release -- --json frontend/public/results.json ./data/*.txt
 cd frontend && vp install && vp dev
 ```
+
+既存の比較結果の閲覧だけなら WebAssembly のビルドは不要です。

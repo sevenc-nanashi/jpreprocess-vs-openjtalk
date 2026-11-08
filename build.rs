@@ -31,7 +31,19 @@ fn main() -> anyhow::Result<()> {
     let mut mecab = open_jtalk::ManagedResource::<open_jtalk::Mecab>::initialize();
     mecab.load(ojt_dict.to_str().unwrap())?;
 
-    println!("cargo:rustc-env=JPREPROCESS_DICT_DIR={}", jp_dict.display());
-    println!("cargo:rustc-env=OPENJTALK_DICT_DIR={}", ojt_dict.display());
+    if std::env::var("CARGO_CFG_TARGET_OS")? == "emscripten" {
+        for (directory, mount) in [
+            (&jp_dict, "/jpreprocess-dict"),
+            (&ojt_dict, "/openjtalk-dict"),
+        ] {
+            println!("cargo:rustc-link-arg=--preload-file");
+            println!("cargo:rustc-link-arg={}@{mount}", directory.display());
+        }
+        println!("cargo:rustc-env=JPREPROCESS_DICT_DIR=/jpreprocess-dict");
+        println!("cargo:rustc-env=OPENJTALK_DICT_DIR=/openjtalk-dict");
+    } else {
+        println!("cargo:rustc-env=JPREPROCESS_DICT_DIR={}", jp_dict.display());
+        println!("cargo:rustc-env=OPENJTALK_DICT_DIR={}", ojt_dict.display());
+    }
     Ok(())
 }
