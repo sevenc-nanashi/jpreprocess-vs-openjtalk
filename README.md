@@ -46,6 +46,12 @@ WebAssembly で実行され、入力した文章はサーバーに送信され�
 初回実行時に両ライブラリの辞書（非圧縮で約 179 MiB）をダウンロードします。
 辞書のライセンスは [naist-jdic-COPYING.txt](frontend/public/naist-jdic-COPYING.txt) に収録しています。
 
+比較結果では、両ライブラリの表記と発音をアクセント句ごとのルビで表示します。
+区切りは厳密な文法上の文節ではなく、各ライブラリの前処理結果に従います。
+数字などの表記は正規化される場合があるため、入力した原文も併記します。
+読みの `’` は母音の無声化を表します。
+既存の `results.json` に読みを表示するには、上記のコマンドで再生成してください。
+
 ブラウザ版のビルドには Emscripten SDK 5.0.7 と Rust の
 `wasm32-unknown-emscripten` ターゲットが必要です。
 `open_jtalk-rs` は [PR #70](https://github.com/VOICEVOX/open_jtalk-rs/pull/70)

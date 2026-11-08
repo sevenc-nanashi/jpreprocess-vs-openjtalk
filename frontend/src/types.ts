@@ -5,6 +5,11 @@ export type Phoneme = {
   diff: DiffKind;
 };
 
+export type Phrase = {
+  text: string;
+  reading: string;
+};
+
 export type Stats = {
   total: number;
   characters: number;
@@ -25,6 +30,8 @@ export type MatchEntry = {
   original: string;
   openjtalk: Phoneme[];
   jpreprocess: Phoneme[];
+  openjtalkPhrases?: Phrase[];
+  jpreprocessPhrases?: Phrase[];
 };
 
 export type MismatchEntry = {
@@ -33,6 +40,8 @@ export type MismatchEntry = {
   original: string;
   openjtalk: Phoneme[];
   jpreprocess: Phoneme[];
+  openjtalkPhrases?: Phrase[];
+  jpreprocessPhrases?: Phrase[];
   lengthMismatch?: boolean;
 };
 

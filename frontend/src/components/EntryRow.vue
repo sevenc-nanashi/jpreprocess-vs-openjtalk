@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Entry } from "../types";
 import PhonemeDiff from "./PhonemeDiff.vue";
+import PhraseReadings from "./PhraseReadings.vue";
 
 defineProps<{
   entry: Entry;
@@ -42,13 +43,22 @@ const kindLabel: Record<string, string> = {
     </div>
     <div class="entry-original">{{ entry.original }}</div>
     <template v-if="entry.kind === 'match' || entry.kind === 'light' || entry.kind === 'fatal'">
+      <div v-if="entry.openjtalkPhrases || entry.jpreprocessPhrases" class="reading-caption">
+        表記と読み（解析後・アクセント句ごと）
+      </div>
       <div class="entry-phonemes">
         <span class="entry-label">OJT</span>
-        <PhonemeDiff :phonemes="(entry as any).openjtalk" />
+        <div class="entry-analysis">
+          <PhraseReadings v-if="entry.openjtalkPhrases" :phrases="entry.openjtalkPhrases" />
+          <PhonemeDiff :phonemes="entry.openjtalk" />
+        </div>
       </div>
       <div class="entry-phonemes">
         <span class="entry-label">JP</span>
-        <PhonemeDiff :phonemes="(entry as any).jpreprocess" />
+        <div class="entry-analysis">
+          <PhraseReadings v-if="entry.jpreprocessPhrases" :phrases="entry.jpreprocessPhrases" />
+          <PhonemeDiff :phonemes="entry.jpreprocess" />
+        </div>
       </div>
     </template>
     <template v-else>
@@ -120,6 +130,17 @@ const kindLabel: Record<string, string> = {
   width: 28px;
   flex-shrink: 0;
   padding-top: 2px;
+}
+.entry-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.reading-caption {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
 }
 .entry-error code {
   font-size: 12px;

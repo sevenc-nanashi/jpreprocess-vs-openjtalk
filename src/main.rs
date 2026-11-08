@@ -1,5 +1,7 @@
-use open_jtalk::{text2mecab, JpCommon, ManagedResource, Mecab, Njd};
+use open_jtalk::{ManagedResource, Mecab};
 use serde::Serialize;
+use std::ffi::CStr;
+use std::mem::MaybeUninit;
 use std::panic;
 use std::str::FromStr;
 use std::time::Instant;
@@ -7,13 +9,7 @@ use std::time::Instant;
 static DICT_DIR: &str = env!("OPENJTALK_DICT_DIR");
 
 static OJT_RESOURCES: std::sync::LazyLock<std::sync::Mutex<Resources>> =
-    std::sync::LazyLock::new(|| {
-        std::sync::Mutex::new(Resources {
-            mecab: ManagedResource::initialize(),
-            njd: ManagedResource::initialize(),
-            jpcommon: ManagedResource::initialize(),
-        })
-    });
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(Resources::new()));
 
 // ---- JSON output types ----
 
@@ -76,6 +72,8 @@ struct MatchEntry {
     original: String,
     openjtalk: Vec<Phoneme>,
     jpreprocess: Vec<Phoneme>,
+    openjtalk_phrases: Vec<Phrase>,
+    jpreprocess_phrases: Vec<Phrase>,
 }
 
 #[derive(Serialize)]
@@ -85,6 +83,8 @@ struct MismatchEntry {
     original: String,
     openjtalk: Vec<Phoneme>,
     jpreprocess: Vec<Phoneme>,
+    openjtalk_phrases: Vec<Phrase>,
+    jpreprocess_phrases: Vec<Phrase>,
     #[serde(skip_serializing_if = "Option::is_none")]
     length_mismatch: Option<bool>,
 }
@@ -112,6 +112,32 @@ enum DiffKind {
     None,
     Light,
     Fatal,
+}
+
+#[derive(Debug, Serialize)]
+struct Phrase {
+    text: String,
+    reading: String,
+}
+
+#[derive(Debug)]
+struct Analysis {
+    labels: Vec<jlabel::Label>,
+    phrases: Vec<Phrase>,
+}
+
+fn phrases_from_nodes(nodes: impl IntoIterator<Item = (String, String, bool)>) -> Vec<Phrase> {
+    let mut phrases: Vec<Phrase> = Vec::new();
+    for (text, reading, chained) in nodes {
+        if chained && !phrases.is_empty() {
+            let phrase = phrases.last_mut().unwrap();
+            phrase.text.push_str(&text);
+            phrase.reading.push_str(&reading);
+        } else {
+            phrases.push(Phrase { text, reading });
+        }
+    }
+    phrases
 }
 
 // Compute per-phoneme diffs between two phoneme sequences using LCS-based diffing.
@@ -286,8 +312,19 @@ fn main() -> anyhow::Result<()> {
 
             let jpreprocess_extraction_started = Instant::now();
             let jp_labels = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                jp.extract_fullcontext(sentence)
-                    .map_err(anyhow::Error::from)
+                let mut njd = jp.text_to_njd(sentence)?;
+                njd.preprocess();
+                let phrases = phrases_from_nodes(njd.nodes.iter().map(|node| {
+                    (
+                        node.get_string().to_owned(),
+                        node.get_pron().to_string(),
+                        node.get_chain_flag() == Some(true),
+                    )
+                }));
+                Ok::<_, anyhow::Error>(Analysis {
+                    labels: jpreprocess_jpcommon::njdnodes_to_features(&njd.nodes),
+                    phrases,
+                })
             }))
             .map_err(|e| anyhow::anyhow!("panicked! {:?}", e.downcast_ref::<String>()))
             .and_then(|r| r);
@@ -343,10 +380,12 @@ fn main() -> anyhow::Result<()> {
                 }
             };
             let ojt_phonemes = ojt_labels
+                .labels
                 .iter()
                 .filter_map(|l| l.phoneme.c.clone())
                 .collect::<Vec<_>>();
             let jp_phonemes = jp_labels
+                .labels
                 .iter()
                 .filter_map(|l| l.phoneme.c.clone())
                 .collect::<Vec<_>>();
@@ -359,6 +398,8 @@ fn main() -> anyhow::Result<()> {
                     original: sentence.to_string(),
                     openjtalk: phonemes,
                     jpreprocess: phonemes_jp,
+                    openjtalk_phrases: ojt_labels.phrases,
+                    jpreprocess_phrases: jp_labels.phrases,
                 }));
             } else {
                 let phonemes_ojt = phonemes_with_diff(&ojt_phonemes, &jp_phonemes);
@@ -408,6 +449,8 @@ fn main() -> anyhow::Result<()> {
                     original: sentence.to_string(),
                     openjtalk: phonemes_ojt,
                     jpreprocess: phonemes_jp,
+                    openjtalk_phrases: ojt_labels.phrases,
+                    jpreprocess_phrases: jp_labels.phrases,
                     length_mismatch: if length_mismatch { Some(true) } else { None },
                 };
                 entries.push(if is_fatal {
@@ -517,48 +560,96 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn extract_fullcontext(text: &str) -> anyhow::Result<Vec<jlabel::Label>> {
+fn extract_fullcontext(text: &str) -> anyhow::Result<Analysis> {
+    use open_jtalk_sys::*;
+    let mut resources = OJT_RESOURCES.lock().unwrap();
     let Resources {
         mecab,
         njd,
         jpcommon,
-    } = &mut *OJT_RESOURCES.lock().unwrap();
-
-    jpcommon.refresh();
-    njd.refresh();
+    } = &mut *resources;
     mecab.refresh();
-
-    let mecab_text = text2mecab(text)?;
-    if mecab.analysis(mecab_text) {
-        njd.mecab2njd(
-            mecab
-                .get_feature()
-                .ok_or(anyhow::anyhow!("mecab.get_feature()"))?,
+    let mecab_text = open_jtalk::text2mecab(text)?;
+    anyhow::ensure!(mecab.analysis(mecab_text), "mecab.analysis() failed");
+    let feature = mecab
+        .get_feature()
+        .ok_or_else(|| anyhow::anyhow!("mecab.get_feature()"))?;
+    // NJD nodes are not exposed by open_jtalk; inspect the owned C resources under the mutex.
+    unsafe {
+        JPCommon_refresh(jpcommon);
+        NJD_refresh(njd);
+        mecab2njd(
+            njd,
+            feature as *const open_jtalk::MecabFeature as *mut *mut std::os::raw::c_char,
             mecab.get_size(),
         );
-        njd.set_pronunciation();
-        njd.set_digit();
-        njd.set_accent_phrase();
-        njd.set_accent_type();
-        njd.set_unvoiced_vowel();
-        njd.set_long_vowel();
-        jpcommon.njd2jpcommon(njd);
-        jpcommon.make_label();
-        jpcommon
-            .get_label_feature_to_iter()
-            .ok_or(anyhow::anyhow!("jpcommon.get_label_feature_to_iter()"))
-            .map(|iter| iter.map(|s| jlabel::Label::from_str(s).unwrap()).collect())
-            .map_err(Into::into)
-    } else {
-        anyhow::bail!("mecab.analysis() failed")
+        njd_set_pronunciation(njd);
+        njd_set_digit(njd);
+        njd_set_accent_phrase(njd);
+        njd_set_accent_type(njd);
+        njd_set_unvoiced_vowel(njd);
+        njd_set_long_vowel(njd);
+        let mut nodes = Vec::new();
+        let mut node = njd.head;
+        while !node.is_null() {
+            nodes.push((
+                CStr::from_ptr(NJDNode_get_string(node))
+                    .to_str()?
+                    .to_owned(),
+                CStr::from_ptr(NJDNode_get_pron(node)).to_str()?.to_owned(),
+                NJDNode_get_chain_flag(node) == 1,
+            ));
+            node = (*node).next;
+        }
+        njd2jpcommon(jpcommon, njd);
+        JPCommon_make_label(jpcommon);
+        let features = JPCommon_get_label_feature(jpcommon);
+        anyhow::ensure!(!features.is_null(), "JPCommon_get_label_feature()");
+        let labels = (0..JPCommon_get_label_size(jpcommon))
+            .map(|index| {
+                Ok(jlabel::Label::from_str(
+                    CStr::from_ptr(*features.add(index as usize)).to_str()?,
+                )?)
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        Ok(Analysis {
+            labels,
+            phrases: phrases_from_nodes(nodes),
+        })
     }
 }
 
 struct Resources {
     mecab: ManagedResource<Mecab>,
-    njd: ManagedResource<Njd>,
-    jpcommon: ManagedResource<JpCommon>,
+    njd: open_jtalk_sys::NJD,
+    jpcommon: open_jtalk_sys::JPCommon,
 }
 
+impl Resources {
+    fn new() -> Self {
+        // Both C initializers fully initialize their resources before use.
+        unsafe {
+            let mut njd = MaybeUninit::uninit();
+            let mut jpcommon = MaybeUninit::uninit();
+            open_jtalk_sys::NJD_initialize(njd.as_mut_ptr());
+            open_jtalk_sys::JPCommon_initialize(jpcommon.as_mut_ptr());
+            Self {
+                mecab: ManagedResource::initialize(),
+                njd: njd.assume_init(),
+                jpcommon: jpcommon.assume_init(),
+            }
+        }
+    }
+}
+
+impl Drop for Resources {
+    fn drop(&mut self) {
+        unsafe {
+            open_jtalk_sys::JPCommon_clear(&mut self.jpcommon);
+            open_jtalk_sys::NJD_clear(&mut self.njd);
+        }
+    }
+}
+
+// The C resources are owned exclusively and accessed only while holding OJT_RESOURCES's mutex.
 unsafe impl Send for Resources {}
-unsafe impl Sync for Resources {}
