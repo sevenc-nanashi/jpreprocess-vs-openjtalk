@@ -106,7 +106,7 @@ struct Phoneme {
     diff: DiffKind,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
 enum DiffKind {
     None,
@@ -118,6 +118,7 @@ enum DiffKind {
 struct Phrase {
     text: String,
     reading: String,
+    diff: DiffKind,
 }
 
 #[derive(Debug)]
@@ -134,10 +135,59 @@ fn phrases_from_nodes(nodes: impl IntoIterator<Item = (String, String, bool)>) -
             phrase.text.push_str(&text);
             phrase.reading.push_str(&reading);
         } else {
-            phrases.push(Phrase { text, reading });
+            phrases.push(Phrase {
+                text,
+                reading,
+                diff: DiffKind::None,
+            });
         }
     }
     phrases
+}
+
+fn reading_units(phrases: &[Phrase]) -> Vec<(char, bool, usize)> {
+    let mut units: Vec<(char, bool, usize)> = Vec::new();
+    for (index, phrase) in phrases.iter().enumerate() {
+        for character in phrase.reading.chars() {
+            if character == '’' {
+                units
+                    .last_mut()
+                    .expect("Devoicing mark must follow a kana")
+                    .1 = true;
+            } else {
+                units.push((character, false, index));
+            }
+        }
+    }
+    units
+}
+
+fn mark_phrase_diffs(primary: &mut [Phrase], other: &mut [Phrase]) {
+    use similar::{capture_diff_slices, Algorithm, DiffTag};
+    let primary_units = reading_units(primary);
+    let other_units = reading_units(other);
+    let primary_chars: Vec<_> = primary_units.iter().map(|unit| unit.0).collect();
+    let other_chars: Vec<_> = other_units.iter().map(|unit| unit.0).collect();
+    // Align readings independently of phrase boundaries, then compare devoicing on equal kana.
+    for op in capture_diff_slices(Algorithm::Myers, &primary_chars, &other_chars) {
+        let old = &primary_units[op.old_range()];
+        let new = &other_units[op.new_range()];
+        if op.tag() == DiffTag::Equal {
+            for (left, right) in old.iter().zip(new) {
+                if left.1 != right.1 {
+                    primary[left.2].diff = primary[left.2].diff.max(DiffKind::Light);
+                    other[right.2].diff = other[right.2].diff.max(DiffKind::Light);
+                }
+            }
+        } else {
+            for unit in old {
+                primary[unit.2].diff = DiffKind::Fatal;
+            }
+            for unit in new {
+                other[unit.2].diff = DiffKind::Fatal;
+            }
+        }
+    }
 }
 
 // Compute per-phoneme diffs between two phoneme sequences using LCS-based diffing.
@@ -331,7 +381,7 @@ fn main() -> anyhow::Result<()> {
             jpreprocess_extraction_duration_ms +=
                 jpreprocess_extraction_started.elapsed().as_secs_f64() * 1000.0;
 
-            let (ojt_labels, jp_labels) = match (ojt_labels, jp_labels) {
+            let (mut ojt_labels, mut jp_labels) = match (ojt_labels, jp_labels) {
                 (Ok(ojt_labels), Ok(jp_labels)) => (ojt_labels, jp_labels),
                 (r1, r2) => {
                     let ojt_err = r1.as_ref().err().map(|e| e.to_string());
@@ -379,6 +429,7 @@ fn main() -> anyhow::Result<()> {
                     continue;
                 }
             };
+            mark_phrase_diffs(&mut ojt_labels.phrases, &mut jp_labels.phrases);
             let ojt_phonemes = ojt_labels
                 .labels
                 .iter()

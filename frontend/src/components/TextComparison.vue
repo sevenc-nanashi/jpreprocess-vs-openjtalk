@@ -9,6 +9,10 @@ const text = ref("こんにちは、世界。");
 const results = ref<Results | null>(null);
 const error = ref<string | null>(null);
 const busy = ref(false);
+const showMatch = ref(true);
+const showLight = ref(true);
+const showFatal = ref(true);
+const showError = ref(true);
 let worker: Worker | null = null;
 
 function stop() {
@@ -64,13 +68,31 @@ onBeforeUnmount(stop);
     </p>
     <template v-if="results">
       <SummaryCard label="入力した文章" :stats="results.totals" />
+      <div class="filter-bar" role="group" aria-label="結果フィルタ">
+        <label class="filter-check">
+          <input v-model="showMatch" type="checkbox" />
+          <span class="badge badge-match">一致</span>
+        </label>
+        <label class="filter-check">
+          <input v-model="showLight" type="checkbox" />
+          <span class="badge badge-light">軽微な差異</span>
+        </label>
+        <label class="filter-check">
+          <input v-model="showFatal" type="checkbox" />
+          <span class="badge badge-fatal">差異あり</span>
+        </label>
+        <label class="filter-check">
+          <input v-model="showError" type="checkbox" />
+          <span class="badge badge-error">エラー</span>
+        </label>
+      </div>
       <EntryList
         :files="results.files"
         :selected-file="null"
-        :show-match="true"
-        :show-light="true"
-        :show-fatal="true"
-        :show-error="true"
+        :show-match="showMatch"
+        :show-light="showLight"
+        :show-fatal="showFatal"
+        :show-error="showError"
       />
     </template>
   </section>
@@ -130,5 +152,16 @@ button:disabled {
 .error {
   color: var(--color-fatal);
   overflow-wrap: anywhere;
+}
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.filter-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
 }
 </style>

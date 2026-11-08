@@ -57,7 +57,8 @@ watch(
 <template>
   <div class="entry-list">
     <div class="entry-count">
-      {{ filteredEntries.length }} 件中 {{ (page - 1) * PAGE_SIZE + 1 }}〜{{
+      {{ filteredEntries.length }} 件中
+      {{ filteredEntries.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1 }}〜{{
         Math.min(page * PAGE_SIZE, filteredEntries.length)
       }}
       件を表示

@@ -8,6 +8,7 @@ export type Phoneme = {
 export type Phrase = {
   text: string;
   reading: string;
+  diff?: DiffKind;
 };
 
 export type Stats = {
